@@ -35,9 +35,10 @@ The filter reads every post as your feed loads and pulls out the slop before you
 Slop Filter is being approved by the Chrome Web Store. Until it's live:
 
 1. Download this repo as a ZIP and unzip it, or clone it.
-2. Go to `chrome://extensions` and turn on **Developer mode**, top right.
-3. Click **Load unpacked** and pick the folder.
-4. Reload LinkedIn.
+2. Install Google Chrome or a Chromium-based browser.
+3. Go to `chrome://extensions` and turn on **Developer mode**, top right.
+4. Click **Load unpacked** and pick the folder.
+5. Reload LinkedIn.
 
 ## What it catches
 
