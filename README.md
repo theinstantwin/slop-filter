@@ -53,9 +53,9 @@ You know these posts. You've scrolled past thousands of them. You've liked a few
 - **Emoji Overload** (off to start): five or more
 - **Humble Brag** (off to start): "humbled to announce"
 
-Humble Brag starts off because "excited to announce" is also how people share a new job or a new kid.
+Every setting is yours to change. Add phrases, cut phrases, or build a category of your own. Switch categories on and off, and decide how many of those obnoxious emoji a post gets before it's flagged.
 
-Every list is yours to edit. Add phrases, cut the ones that bug you, or build a category of your own. And because everyone has a friend who posts like a LinkedIn growth coach, there's **Trusted People**: add someone by name and their posts always come through untouched, slop and all. You can love a person and still hate their content strategy.
+Best of all, you can mute people. It happens to everyone: the same dozen accounts posting and commenting on each other until they're all your feed shows you. Mute the regulars and their posts stop showing up.
 
 ## Make it yours
 
