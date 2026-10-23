@@ -2,11 +2,11 @@
 
 ![Slop Filter: clean up the mess in your LinkedIn feed](.github/readme/promo-marquee.png)
 
-A Chrome extension that folds the worst of your LinkedIn feed down to one line. The ChatGPT-shaped posts. The "read that again" posts. The guy who woke up at 4:30am for 1,000 days straight and wants you to comment GRIND for his morning routine.
+A Chrome extension that fixes one of the biggest problems in the corporate world today. It cleans up LinkedIn the way LinkedIn's own developers should be filtering it, and makes it the powerhouse social network it was meant to be. Some would say it's the most important Chrome extension in the world.
 
-Then it tells you exactly which phrase got each one caught.
+I was talking to a former colleague who said one of the saddest things I've ever heard: "LinkedIn is my favorite social network." With this extension, maybe we can get it back there.
 
-That second part is the point. Every feed blocker asks you to trust it. Slop Filter shows its work, and when it gets one wrong, you overrule it in one click.
+(To be clear, LinkedIn should not be your favorite social network.)
 
 Not affiliated with LinkedIn.
 
@@ -57,14 +57,7 @@ Every list is yours to edit. Add phrases, cut the ones that bug you, or build a 
 
 ## Make it yours
 
-Open Settings from the toolbar popup.
-
-- **Categories.** Edit any phrase, add your own, delete the ones that bug you, or build a whole new category. Phrases are plain text and ignore capitalization. Type `circle back` and it catches "Circle back." Use three underscores as a blank: `drop a ___ below` catches "drop a 🔥 below" and "drop a YES below."
-- **Muted people.** Everyone you've muted from the ··· menu, with an Unmute button and a six-second undo if you change your mind.
-- **Activity.** What got caught, by category and by phrase. If you keep opening posts a phrase flagged, it gets marked as misfiring so you know it's catching things you want to read. There's also a shareable card of your totals, drawn in your browser.
-- **Promoted content.** The switches for LinkedIn's Promoted and Boosted posts.
-- **Backup.** Export your settings, or only your categories and phrases, and restore them on another machine. You see what's in the file before anything gets replaced.
-- **Labs.** Two stricter patterns for follow-bait and comment-to-unlock posts. Off by default, because stricter means more false alarms.
+![Slop Filter settings: Categories, Trusted People and Activity](.github/readme/03-settings.png)
 
 ## Private by design
 
