@@ -43,6 +43,8 @@ Slop Filter is being approved by the Chrome Web Store. Until it's live:
 3. Click **Load unpacked** and pick the folder.
 4. Reload LinkedIn.
 
+---
+
 ## What it catches
 
 You know these posts. You've scrolled past thousands of them. You've liked a few out of guilt. Slop Filter sorts them into nine piles:
@@ -81,8 +83,6 @@ Open Settings from the toolbar popup.
 Nothing leaves your browser. No account, no analytics, no server, no network requests. Your settings live in Chrome's own extension storage.
 
 It asks Chrome for two permissions: `storage`, to remember your settings, and access to linkedin.com, to read the feed. That's the full list.
-
----
 
 ---
 
