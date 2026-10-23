@@ -1,6 +1,6 @@
 # Slop Filter for LinkedIn
 
-![Slop Filter: clean up the mess in your LinkedIn feed](.github/readme/promo-marquee.png)
+![Slop Filter: clean up the mess in your LinkedIn feed](.github/readme/marquee-blue.png)
 
 A Chrome extension that fixes one of the biggest problems in the corporate world today. It cleans up LinkedIn the way LinkedIn's own developers should be filtering it, and makes it the powerhouse social network it was meant to be. Some would say it's the most important Chrome extension in the world.
 
@@ -28,7 +28,7 @@ Every "let that sink in" a chatbot writes today, it learned from a person who wr
 
 The filter reads every post as your feed loads and pulls out the slop before you have to wade through it. What's left is the reason you joined LinkedIn in the first place. The people you know and the work they're proud of. Install it once and your feed stays clean for good. (Yep, you can even get rid of all those long emoji posts.)
 
-![A flagged post opened up, with its receipt of matched phrases](.github/readme/02-receipt.png)
+![A flagged post opened up, with its receipt of matched phrases](.github/readme/receipt-blue.png)
 
 ## Install
 
@@ -60,7 +60,7 @@ Best of all, you can mute people. It happens to everyone: the same dozen account
 
 ## Make it yours
 
-![Slop Filter settings: Categories, Trusted People and Activity](.github/readme/03-settings.png)
+![Slop Filter settings: Categories, Trusted People and Activity](.github/readme/settings-blue.png)
 
 ## Private by design
 
