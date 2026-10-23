@@ -28,23 +28,21 @@ The filter reads every post as your feed loads and pulls out the slop before you
 
 ## What it catches
 
-| Category | What it's looking for | A few of the phrases | On out of the box |
-|-|-|-|-|
-| AI Slop | Sentence shapes generated text loves | "let that sink in," "read that again," "in today's fast-paced world" | Yes |
-| Fake Insight | Profundity with nothing underneath | "the truth is," "changes everything," "nobody talks about this" | Yes |
-| Engagement Bait | Fishing for comments and reactions | "agree?," "unpopular opinion," "tag someone who," "stop scrolling" | Yes |
-| Hustle Culture | Grind talk and FOMO | "rise and grind," "5am club," "your network is your net worth" | Yes |
-| Self-promotion CTA | Pitching a follow instead of making the post stand on its own | "follow me for," "follow for more," "ring the bell" | Yes |
-| Sponsored | Creator ads disclosed in the post | #ad, #sponsored, "partnering with" | Yes |
-| Hashtag Overload | Too many hashtags | 5 or more, and you set the number | Yes |
-| Emoji Overload | Too many emoji | 5 or more, and you set the number | Off |
-| Humble Brag | Fake humility announcements | "humbled to announce," "excited to announce" | Off |
+You know these posts. You've scrolled past thousands of them. You've liked a few out of guilt. Slop Filter sorts them into nine piles:
 
-Humble Brag ships switched off on purpose. "Excited to announce" is also how people share a new job or a new kid, and you probably want to see those. Turn it on if your feed can take it.
+- **AI Slop**: "let that sink in"
+- **Fake Insight**: "nobody talks about this"
+- **Engagement Bait**: "agree?"
+- **Hustle Culture**: "5am club"
+- **Self-promotion CTA**: "follow me for more"
+- **Sponsored**: #ad
+- **Hashtag Overload**: five or more
+- **Emoji Overload** (off to start): five or more
+- **Humble Brag** (off to start): "humbled to announce"
 
-LinkedIn's own ads, the ones labeled **Promoted**, don't get a bar at all. They're gone. Boosted posts can go the same way with one switch in Settings.
+Humble Brag starts off because "excited to announce" is also how people share a new job or a new kid.
 
-Every post also gets a few extra lines in its **···** menu: **Mute** the author, **Read anyway**, or **Allow** a whole category.
+Every list is yours to edit. Add phrases, cut the ones that bug you, or build a category of your own. And because everyone has a friend who posts like a LinkedIn growth coach, there's **Trusted People**: add someone by name and their posts always come through untouched, slop and all. You can love a person and still hate their content strategy.
 
 ---
 
