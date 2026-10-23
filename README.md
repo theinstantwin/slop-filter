@@ -12,17 +12,17 @@ Not affiliated with LinkedIn.
 
 ---
 
-## How it works
+## Here's how it works
+
+- **Your feed gets quiet.** AI-written filler, engagement bait and hustle posts fold down to one thin line.
+- **You see why.** Every flagged post shows the exact phrase that caught it.
+- **You stay in charge.** One click opens any post. One more teaches the filter what to keep.
+- **Good posts stay untouched.** Real updates from real people look exactly like they always have.
+- **Nothing leaves your browser.** No account, no tracking, no server.
+
+The filter reads every post as your feed loads and pulls out the slop before you have to wade through it. What's left is the reason you joined LinkedIn in the first place. The people you know and the work they're proud of. Install it once and your feed stays clean for good. (Yep, you can even get rid of all those long emoji posts.)
 
 ![A flagged post opened up, with its receipt of matched phrases](.github/readme/02-receipt.png)
-
-A flagged post shrinks to a thin red bar: the author's name and a chip for each category it tripped. Click anywhere on the bar and the post opens. Click again and it folds back up.
-
-Open one and you get the receipt. Every phrase that matched, struck through, labeled with its category, each with its own **Allow** button. Allow "agree?" and it's allowed everywhere, from everyone, from then on. The rest of the filter keeps working.
-
-Good posts never see the extension. Nothing gets added to them, nothing moves.
-
-Prefer to see everything? The toolbar popup can switch from **Collapse it to one line** to **Show the post with a notice**, so flagged posts stay open with the bar on top.
 
 ---
 
