@@ -12,7 +12,7 @@ Not affiliated with LinkedIn.
 
 ---
 
-## What you'll see
+## How it works
 
 ![A flagged post opened up, with its receipt of matched phrases](.github/readme/02-receipt.png)
 
@@ -80,6 +80,10 @@ Slop Filter isn't on the Chrome Web Store yet. Until it is:
 
 ---
 
-## How it works
+## Why I built this
 
-`dom.js` is the only file that knows what LinkedIn's HTML looks like. LinkedIn rebuilt its feed in June 2026, and version 1.0 kept loading, kept reporting success, and matched nothing for six weeks. When LinkedIn changes its markup again, that's the one file to fix.
+I'm Matt DeSiena, and I've spent the better part of twenty years in social media at some of the best-known agencies in the Big 3 holding companies. Everywhere I go, from Cannes Lions 2026 to a long list of ad conferences, I hear the same thing. LinkedIn is the bane of every user's existence.
+
+At Cannes I spent time outside Microsoft's exhibits. Microsoft owns LinkedIn, and even there, people were talking about how they just don't want to be on it.
+
+Slop Filter is built to change that. It turns LinkedIn from the site people shudder at opening into one they actually look forward to.
