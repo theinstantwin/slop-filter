@@ -12,6 +12,14 @@ Not affiliated with LinkedIn.
 
 ---
 
+## The Insight
+
+AI delivers digital slop because it was trained on human slop.
+
+Every "let that sink in" a chatbot writes today, it learned from a person who wrote it first. LinkedIn spent a decade teaching people to post like this, and then the models read all of it. Slop Filter catches the phrase, whoever typed it.
+
+---
+
 ## Here's how it works
 
 - **Your feed gets quiet.** AI-written filler, engagement bait and hustle posts fold down to one thin line.
@@ -25,6 +33,15 @@ The filter reads every post as your feed loads and pulls out the slop before you
 ![A flagged post opened up, with its receipt of matched phrases](.github/readme/02-receipt.png)
 
 ---
+
+## Install
+
+Slop Filter is being approved by the Chrome Web Store. Until it's live:
+
+1. Download this repo as a ZIP and unzip it, or clone it.
+2. Go to `chrome://extensions` and turn on **Developer mode**, top right.
+3. Click **Load unpacked** and pick the folder.
+4. Reload LinkedIn.
 
 ## What it catches
 
@@ -66,15 +83,6 @@ Nothing leaves your browser. No account, no analytics, no server, no network req
 It asks Chrome for two permissions: `storage`, to remember your settings, and access to linkedin.com, to read the feed. That's the full list.
 
 ---
-
-## Install
-
-Slop Filter isn't on the Chrome Web Store yet. Until it is:
-
-1. Download this repo as a ZIP and unzip it, or clone it.
-2. Go to `chrome://extensions` and turn on **Developer mode**, top right.
-3. Click **Load unpacked** and pick the folder.
-4. Reload LinkedIn.
 
 ---
 
