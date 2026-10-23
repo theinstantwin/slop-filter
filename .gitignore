@@ -5,3 +5,21 @@ node_modules/
 *.pem
 .env
 .env.*
+
+# dev-only, kept on disk, never committed
+test/
+package.json
+package-lock.json
+CHANGELOG.md
+docs/
+research/
+store-assets/
+mockup-*.html
+STATUS.md
+DOM-NOTES.md
+fonts/
+icon.png
+scratch/
+*.log
+.claude/
+.superpowers/
