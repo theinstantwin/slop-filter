@@ -10,15 +10,11 @@ That second part is the point. Every feed blocker asks you to trust it. Slop Fil
 
 Not affiliated with LinkedIn.
 
----
-
 ## The Insight
 
 AI delivers digital slop because it was trained on human slop.
 
 Every "let that sink in" a chatbot writes today, it learned from a person who wrote it first. LinkedIn spent a decade teaching people to post like this, and then the models read all of it. Slop Filter catches the phrase, whoever typed it.
-
----
 
 ## Here's how it works
 
@@ -32,8 +28,6 @@ The filter reads every post as your feed loads and pulls out the slop before you
 
 ![A flagged post opened up, with its receipt of matched phrases](.github/readme/02-receipt.png)
 
----
-
 ## Install
 
 Slop Filter is being approved by the Chrome Web Store. Until it's live:
@@ -42,8 +36,6 @@ Slop Filter is being approved by the Chrome Web Store. Until it's live:
 2. Go to `chrome://extensions` and turn on **Developer mode**, top right.
 3. Click **Load unpacked** and pick the folder.
 4. Reload LinkedIn.
-
----
 
 ## What it catches
 
@@ -63,8 +55,6 @@ Humble Brag starts off because "excited to announce" is also how people share a 
 
 Every list is yours to edit. Add phrases, cut the ones that bug you, or build a category of your own. And because everyone has a friend who posts like a LinkedIn growth coach, there's **Trusted People**: add someone by name and their posts always come through untouched, slop and all. You can love a person and still hate their content strategy.
 
----
-
 ## Make it yours
 
 Open Settings from the toolbar popup.
@@ -76,15 +66,11 @@ Open Settings from the toolbar popup.
 - **Backup.** Export your settings, or only your categories and phrases, and restore them on another machine. You see what's in the file before anything gets replaced.
 - **Labs.** Two stricter patterns for follow-bait and comment-to-unlock posts. Off by default, because stricter means more false alarms.
 
----
-
 ## Private by design
 
 Nothing leaves your browser. No account, no analytics, no server, no network requests. Your settings live in Chrome's own extension storage.
 
 It asks Chrome for two permissions: `storage`, to remember your settings, and access to linkedin.com, to read the feed. That's the full list.
-
----
 
 ## Why I built this
 
