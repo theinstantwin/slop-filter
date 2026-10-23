@@ -8,6 +8,8 @@ I was talking to a former colleague who said one of the saddest things I've ever
 
 (To be clear, LinkedIn should not be your favorite social network.)
 
+**[Install it →](#install)**
+
 Not affiliated with LinkedIn.
 
 ## The Insight
