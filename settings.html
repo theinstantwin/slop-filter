@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Slop Filter — settings</title>
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+
+<div class="shell">
+  <nav class="opt-nav">
+    <div class="opt-brand">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+        <path d="M1.5 2.5h13l-5 6v5l-3 1.5v-6.5z" stroke-linejoin="round"/>
+      </svg>
+      Slop Filter
+    </div>
+    <button class="navitem" aria-current="true" data-panel="categories">Categories</button>
+    <button class="navitem" aria-current="false" data-panel="promoted">Promoted content</button>
+    <button class="navitem" aria-current="false" data-panel="labs">Labs</button>
+    <button class="navitem" aria-current="false" data-panel="muted">Muted people</button>
+    <button class="navitem" aria-current="false" data-panel="trusted">Trusted People</button>
+    <button class="navitem" aria-current="false" data-panel="activity">Activity</button>
+    <button class="navitem" aria-current="false" data-panel="backup">Backup</button>
+    <div class="nav-foot">
+      <p class="saved" id="saved">Saved</p>
+      <p class="ver" id="ver"></p>
+    </div>
+  </nav>
+
+  <main class="opt-main">
+    <section class="panel on" id="panel-categories">
+      <h2>Categories</h2>
+      <p class="sub">
+        Every category is a name, a definition, and a list of phrases. The definition is what
+        you see in the tooltip when a post gets flagged. Add a new category, or add terms to
+        an existing one — the eight below are only a starting point.
+      </p>
+
+      <div class="addrow">
+        <input type="text" class="add-input" id="top-add"
+               placeholder="Add a phrase, e.g. circle back" spellcheck="false">
+        <span class="in-word">to</span>
+        <select id="top-add-cat" aria-label="Category to add the phrase to"></select>
+        <button class="btn btn-primary" id="top-add-btn">Add</button>
+      </div>
+
+      <div id="cats"></div>
+
+      <div class="newcat"><button id="new-cat">+ New category</button></div>
+
+      <div class="tryblock">
+        <h3>Try a post <span class="live">live</span></h3>
+        <p class="sub">Paste anything and see what the current rules catch.</p>
+        <textarea class="try" id="try" spellcheck="false">Let me break this down. It's not a hiring problem — it's a leadership problem. Read that again. The truth is, most people don't realize this. Thoughts?</textarea>
+        <div class="verdict" id="verdict"></div>
+      </div>
+    </section>
+
+    <!-- Structural toggles get their own panel: they are not categories —
+         nobody WROTE this content into the feed; it is there because a company
+         paid for the spot. Detected from LinkedIn's own actor-block label
+         (dom.js isPromoted/isBoosted), so there are no phrases and nothing for
+         Try a post to match.
+
+         Copy rule for this panel: describe placement neutrally — "a company
+         paid for this spot" — in LinkedIn's own label vocabulary. Never
+         "ads", never "blocking". Two species, two defaults (see PRD): plain
+         "Promoted" hides by default; "Promoted • Partnership with <brand>"
+         is a real person's post and opts in — the Humble Brag argument
+         applied to structure. -->
+    <section class="panel" id="panel-promoted">
+      <h2>Promoted content</h2>
+      <p class="sub">
+        Posts that appear because a company paid for the spot — not because you
+        follow anyone. LinkedIn labels them "Promoted"; the filter reads that
+        label. Hidden posts leave no notice, so there is nothing to read past.
+      </p>
+      <p class="note">
+        Already running an ad blocker? Leave these off for now — a known issue
+        where the two can conflict on LinkedIn is being worked on.
+      </p>
+
+      <section class="cat static" id="promoted-row">
+        <div class="cat-head">
+          <div class="cat-id">
+            <div class="cat-name">Hide promoted posts</div>
+            <div class="cat-def">A company paid for this spot in your feed. On = these never appear.</div>
+          </div>
+          <label class="sw"><input type="checkbox" id="promoted-toggle" aria-label="Hide promoted posts"><span></span></label>
+        </div>
+      </section>
+      <section class="cat static off" id="boosted-row">
+        <div class="cat-head">
+          <div class="cat-id">
+            <div class="cat-name">Hide boosted partner posts</div>
+            <div class="cat-def">Someone's real post — "Promoted · Partnership with…" — that a brand paid to amplify. On = hidden.</div>
+          </div>
+          <label class="sw"><input type="checkbox" id="boosted-toggle" aria-label="Hide boosted partner posts"><span></span></label>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" id="panel-labs">
+      <h2>Labs</h2>
+      <p class="sub">
+        Hardcoded patterns that catch phrasing broader than a single typed
+        phrase — verb variants, connector shapes across trigger words. Not
+        editable, unlike Categories. Off by default: expect a different
+        false-positive profile than a plain phrase.
+      </p>
+      <div id="labs-rows"></div>
+    </section>
+
+    <section class="panel" id="panel-muted">
+      <h2>Muted people</h2>
+      <p class="sub">
+        Their posts never reach the feed — no notice, no chip, nothing to read past.
+        Mute someone from the ··· menu on any of their posts.
+      </p>
+      <div id="mutes"></div>
+    </section>
+
+    <section class="panel" id="panel-trusted">
+      <h2>Trusted People</h2>
+      <p class="sub">
+        Their posts are never flagged or hidden, no matter what else matches —
+        not a phrase category, not Promoted, not Boosted. Type a name below to
+        add someone.
+      </p>
+      <div class="trust-add">
+        <input type="text" id="trust-input" placeholder="Full name as it appears on LinkedIn">
+        <button id="trust-add-btn" class="btn btn-line">Add</button>
+      </div>
+      <p id="trust-add-error" class="trust-error" role="alert"></p>
+      <div id="trusted"></div>
+    </section>
+
+    <section class="panel" id="panel-activity">
+      <h2>Activity</h2>
+      <p class="sub">
+        Which phrases are doing the work. Counts only — no log of individual
+        posts, because the point of the filter is not reading them.
+      </p>
+
+      <h3 class="stat-head">By category</h3>
+      <div id="cat-stats"></div>
+
+      <h3 class="stat-head">By phrase</h3>
+      <div id="phrase-stats"></div>
+
+      <div class="share">
+        <div class="share-head">
+          <h3>Share this</h3>
+          <p class="sub">A square image for a LinkedIn post. Nothing leaves your browser.</p>
+        </div>
+
+        <div class="card-wrap">
+          <div class="card-scale">
+          <div class="card" id="share-card">
+            <div class="card-body">
+              <h4 class="card-title">The posts I<br>never have to read</h4>
+              <p class="card-sub" id="card-period"></p>
+              <div class="card-rows" id="card-rows"></div>
+            </div>
+            <div class="card-foot">
+              <div class="card-brand">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                  <path d="M1.5 2.5h13l-5 6v5l-3 1.5v-6.5z" stroke-linejoin="round"/>
+                </svg>
+                Slop Filter for LinkedIn
+              </div>
+            </div>
+          </div>
+          </div>
+
+          <div class="share-actions">
+            <button class="btn btn-primary" id="dl-card">Download PNG</button>
+            <p class="field-hint">
+              1200×1200, sized for an in-feed post. Rendered on your machine —
+              no counts are uploaded anywhere.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-backup">
+      <h2>Backup</h2>
+      <p class="sub">
+        Settings live on this computer only — they do not follow you to another
+        machine, and uninstalling clears them. A file is the way to move or keep them.
+      </p>
+
+      <div class="bk">
+        <div class="bk-row">
+          <div class="bk-txt">
+            <h3>Back up everything</h3>
+            <p>Categories, phrases, thresholds, muted people, and your counts.
+               Restoring this returns the extension to exactly this state.</p>
+          </div>
+          <button class="btn btn-primary" id="bk-all">Download</button>
+        </div>
+
+        <div class="bk-row">
+          <div class="bk-txt">
+            <h3>Back up categories and rules only</h3>
+            <p>The same, without muted people or your counts.</p>
+          </div>
+          <button class="btn btn-line" id="bk-rules">Download</button>
+        </div>
+      </div>
+
+      <h3 class="stat-head">Restore from a file</h3>
+      <p class="sub">
+        Drop a file you exported here. You will see what it contains before
+        anything changes.
+      </p>
+
+      <div class="drop" id="drop" tabindex="0" role="button"
+           aria-label="Choose a backup file to restore">
+        <div class="drop-in">
+          <b>Drop a backup file here</b>
+          <span>or click to choose one</span>
+        </div>
+      </div>
+
+      <div id="restore-preview"></div>
+    </section>
+  </main>
+</div>
+
+<script src="filters.js"></script>
+<script src="storage.js"></script>
+<script src="counters.js"></script>
+<script src="settings.js"></script>
+</body>
+</html>

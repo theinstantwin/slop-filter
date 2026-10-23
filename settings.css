@@ -1,0 +1,610 @@
+/*
+ * Tokens are contrast-checked against WCAG 2.2 AA. Do not lighten --text-3.
+ */
+:root {
+  --bg: #fff;
+  --bg-subtle: #f7f7f8;
+  --bg-sink: #f0f0f2;
+  --border: #e3e3e6;        /* decorative rules only */
+  --border-strong: #8f8f99; /* control outlines — 3.20:1 on white */
+  --text: #18181b;          /* 17.72:1 */
+  --text-2: #5c5c66;        /*  6.61:1 */
+  --text-3: #6f6f7a;        /*  4.96:1 — AA floor for readable text */
+  --accent: #07729B;        /* Slop Filter cerulean — 5.13:1 on white */
+  --accent-soft: #eaf4f9;
+  --on-accent: #ffffff;
+  --danger: #b42318;        /*  6.57:1 */
+  --r-sm: 4px;
+  --r: 6px;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1f;
+    --bg-subtle: #232327;
+    --bg-sink: #161618;
+    --border: #33333a;
+    --border-strong: #72727c;
+    --text: #f2f2f4;
+    --text-2: #a8a8b3;
+    --text-3: #9797a1;
+    --accent: #4FB4DC;      /* lightened cerulean — 6.9:1 as text on dark */
+    --accent-soft: #17313d;
+    --on-accent: #101012;
+    --danger: #ff8a80;
+  }
+}
+
+/* Anton (Google Fonts, SIL Open Font License 1.1) embedded as base64.
+   MV3 CSP blocks external font loading and the PNG must render offline, so
+   the file ships inside the CSS. OFL explicitly permits redistribution. ~19KB. */
+@font-face {
+  font-family: "Anton";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url(data:font/woff2;base64,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) format('woff2');
+}
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  color: var(--text);
+  background: var(--bg-sink);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- shell: sidebar + single content column ---- */
+.shell {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  min-height: 100vh;
+  max-width: 1000px;
+  margin: 0 auto;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.opt-nav {
+  background: var(--bg-subtle);
+  border-right: 1px solid var(--border);
+  padding: 18px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.opt-brand {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 8px 16px; font-size: 13px; font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.opt-brand svg { width: 15px; height: 15px; color: var(--accent); flex: none; }
+
+.opt-nav button.navitem {
+  display: block; width: 100%; text-align: left;
+  appearance: none; background: none; border: 0; font: inherit;
+  font-size: 12.5px; color: var(--text-2);
+  padding: 7px 9px; border-radius: var(--r); cursor: pointer;
+}
+.opt-nav button.navitem:hover { background: var(--bg-sink); color: var(--text); }
+.opt-nav button.navitem[aria-current="true"] {
+  background: var(--bg); color: var(--text); font-weight: 550;
+  box-shadow: 0 0 0 1px var(--border);
+}
+.opt-nav button.navitem:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.nav-foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
+.ver { padding: 6px 9px 0; margin: 0; font-family: var(--mono); font-size: 10.5px; color: var(--text-3); }
+.saved {
+  padding: 6px 9px 0; margin: 0; font-size: 11px; color: var(--accent);
+  opacity: 0; transition: opacity .15s;
+}
+.saved.on { opacity: 1; }
+
+.opt-main { padding: 28px 32px 60px; min-width: 0; }
+.opt-main h2 { margin: 0 0 4px; font-size: 17px; font-weight: 620; letter-spacing: -0.012em; }
+.opt-main .sub { margin: 0 0 20px; font-size: 12.5px; color: var(--text-2); max-width: 640px; line-height: 1.5; }
+.opt-main .note {
+  margin: -12px 0 20px; padding: 8px 12px; font-size: 12px; color: var(--text-2);
+  max-width: 640px; line-height: 1.5; background: var(--bg-subtle);
+  border-radius: var(--r-sm);
+}
+
+.panel { display: none; }
+.panel.on { display: block; }
+
+/* ---- controls ---- */
+input[type=text], textarea, select {
+  font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--border-strong); border-radius: var(--r);
+  padding: 7px 9px;
+}
+input[type=text]:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent);
+}
+.btn {
+  appearance: none; font: inherit; font-size: 12.5px; cursor: pointer;
+  border-radius: var(--r); padding: 7px 13px; border: 1px solid transparent;
+}
+.btn-primary { background: var(--accent); color: var(--on-accent); font-weight: 550; }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-line { background: var(--bg); color: var(--text); border-color: var(--border-strong); }
+.btn-line:hover { background: var(--bg-sink); }
+.btn-quiet {
+  background: none; border: 0; color: var(--danger);
+  font-size: 12px; padding: 6px 0; cursor: pointer;
+}
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---- the top add row: one field, category picked from a dropdown ---- */
+.addrow {
+  display: flex; gap: 8px; align-items: center;
+  max-width: 720px; margin-bottom: 22px;
+}
+.addrow .add-input { flex: 1; min-width: 0; }
+.addrow .in-word { font-size: 12.5px; color: var(--text-2); flex: none; }
+.addrow select { min-width: 150px; }
+
+/* ---- category accordion ---- */
+.cat {
+  max-width: 720px;
+  border-bottom: 1px solid var(--border);
+}
+.cat:first-child { border-top: 1px solid var(--border); }
+
+.cat-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 4px; cursor: pointer; user-select: none;
+}
+.cat-head:hover { background: var(--bg-subtle); }
+.cat-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Disclosure arrow. Kept deliberately light: it is a hint, not a control
+   competing with the category name. Aligned to the title line rather than
+   centred on the two-line block, and rotated about its own centre so it
+   pivots in place instead of swinging. */
+.caret {
+  width: 12px; height: 12px; flex: none; margin-left: 2px;
+  color: var(--text-3); opacity: .65;
+  /* Slight overshoot past 90° then back — gives the rotation a flick. */
+  transition: transform .34s cubic-bezier(.34, 1.4, .5, 1), opacity .18s ease-out;
+}
+.cat-head:hover .caret { opacity: 1; }
+.cat.open .caret { transform: rotate(90deg); opacity: 1; }
+
+/* Name and definition share one line, separated by a floating bullet. Halves
+   the row height and gives the caret a single baseline to sit on. */
+.cat-id {
+  min-width: 0; flex: 1;
+  display: flex; align-items: baseline; gap: 8px;
+}
+.cat-name { font-size: 13px; font-weight: 550; letter-spacing: -0.005em; flex: none; }
+.cat-def {
+  font-size: 12px; color: var(--text-3); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cat-def::before { content: '•'; margin-right: 8px; color: var(--border-strong); }
+
+/* Inline definition editor — same metrics as the text it replaces, so the
+   title line does not reflow when it appears. */
+input[type=text].def-inline {
+  flex: 1; min-width: 0; font-size: 12px;
+  padding: 2px 6px; margin: -3px 0;
+  border-radius: var(--r-sm);
+}
+/* Names are short and definitions run long, so the name takes a fixed slot
+   and the definition gets the remaining width. */
+input[type=text].name-inline {
+  flex: none; width: 180px;
+  font-size: 13px; font-weight: 550; color: var(--text);
+}
+.cat.off .cat-name, .cat.off .cat-def { color: var(--text-3); }
+
+
+.badge-custom {
+  font-size: 10px; font-family: var(--mono); color: var(--accent);
+  background: var(--accent-soft); padding: 1px 5px; border-radius: 3px;
+  margin-left: 7px; vertical-align: 1px;
+}
+.cat-meta .n { font-family: var(--mono); font-size: 10.5px; color: var(--text-3); }
+
+.cat-action {
+  appearance: none; background: none; border: 0; font: inherit;
+  font-size: 11.5px; color: var(--text-3); cursor: pointer;
+  padding: 3px 6px; border-radius: var(--r-sm);
+}
+.cat-action:hover { background: var(--bg-sink); color: var(--text); }
+.cat-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Armed delete — the button states what it is about to destroy, so the
+   confirmation lives where the click does rather than in a modal. */
+.cat-action.danger,
+.cat-action.danger:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  font-weight: 550;
+}
+
+/* Row actions appear on hover so eight rows aren't lined with buttons at rest.
+   Kept in the layout (opacity, not display) so the toggle never shifts. */
+.cat-action { opacity: 0; transition: opacity .12s ease; }
+.cat-head:hover .cat-action,
+.cat-action:focus-visible,
+.cat-action.danger,
+.cat.open .cat-action { opacity: 1; }
+
+/* toggle */
+.sw { position: relative; display: inline-block; width: 30px; height: 18px; flex: none; }
+.sw input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.sw span {
+  position: absolute; inset: 0; background: var(--border-strong);
+  border-radius: 999px; transition: background .15s; pointer-events: none;
+}
+.sw span::after {
+  content: ''; position: absolute; width: 14px; height: 14px; left: 2px; top: 2px;
+  background: #fff; border-radius: 50%; transition: transform .15s;
+}
+.sw input:checked + span { background: var(--accent); }
+.sw input:checked + span::after { transform: translateX(12px); }
+.sw input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Structural toggle rows (Promoted content panel) — category row metrics,
+   minus the accordion: no caret, no expand, nothing inside but the toggle.
+   Flush left like the muted-people rows, since no caret rows sit nearby. */
+.cat.static .cat-head { cursor: default; }
+.cat.static .cat-head:hover { background: none; }
+.cat.static:first-of-type { border-top: 1px solid var(--border); }
+
+/* expanded body */
+/* Accordion. `display:none`→`block` snaps, and `height:auto` is not animatable,
+   so the row is a 0fr→1fr grid — it eases to whatever height the content
+   actually is, no hardcoded pixel guess that breaks when phrases wrap. The
+   inner div owns overflow:hidden; padding lives inside it so it collapses too. */
+.cat-body {
+  display: grid; grid-template-rows: minmax(0, 0fr);
+  overflow: hidden;
+  /* Ease-out-expo. Most of the distance is covered in the first third, then it
+     settles — reads as instant response rather than a panel being winched open.
+     `ease-out` is the browser default and feels sluggish by comparison. */
+  transition: grid-template-rows .34s cubic-bezier(.16, 1, .3, 1);
+}
+/* max-content, not 1fr. `1fr` distributes FREE space, and inside an auto-height
+   parent there is none — it resolves to the first line box and clips the rest.
+   (Requires overflow:hidden on this grid, not on the inner item: on the item it
+   creates a formatting context that reports zero height back to the grid.) */
+.cat.open .cat-body { grid-template-rows: minmax(0, max-content); }
+
+.cat-body-inner { min-height: 0; padding: 0 4px 18px 26px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cat-body, .caret { transition: none; }
+}
+
+/* padding, not margin — margins collapse out of the animated grid row */
+.field { margin-bottom: 0; padding-top: 14px; padding-bottom: 0; }
+.field:last-child { margin-bottom: 0; }
+/* Sentence case, not uppercase-letterspaced — two shouted labels in a panel
+   with two controls competed with the category name for attention. */
+.field-label {
+  display: block; font-size: 11.5px; font-weight: 600;
+  color: var(--text-3); margin-bottom: 7px;
+}
+.def-input { width: 100%; }
+.field-hint { font-size: 11.5px; color: var(--text-3); margin-top: 6px; line-height: 1.45; }
+
+/* phrase chips */
+.rules { display: flex; flex-wrap: wrap; gap: 6px; }
+/* line-height 1 clipped descenders (the g in "rise and grind") against
+   .rule-text's overflow:hidden. 1.4 gives them room. */
+.rule {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 7px 5px 10px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  color: var(--text);
+  font-size: 12.5px; line-height: 1.4; max-width: 100%;
+}
+.rule:hover { border-color: color-mix(in srgb, var(--danger) 55%, transparent); }
+/* Built-in template. The prose explaining these is gone, so the chip says it
+   itself: dashed border, and a small lock glyph where the × would be. */
+/* Built-in template: neutral, so "you can edit this" vs "you can't" reads at
+   a glance without needing the lock glyph to carry it alone. */
+.rule.locked {
+  border: 1px dashed var(--border-strong); background: var(--bg-subtle);
+  padding-right: 8px; color: var(--text-2); cursor: help;
+}
+.rule.locked:hover { border-color: var(--border-strong); }
+.rule .lock { flex: none; width: 10px; height: 10px; color: var(--text-3); opacity: .7; }
+.rule-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rule .fill { font-style: italic; color: var(--text-3); }
+.rule-x {
+  appearance: none; background: none; border: 0; cursor: pointer;
+  color: var(--text-3); font-size: 14px; line-height: 1;
+  padding: 2px 3px; border-radius: 3px; opacity: .55;
+}
+.rule:hover .rule-x { opacity: 1; }
+.rule-x:hover { background: var(--bg-sink); color: var(--danger); }
+.rule-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; opacity: 1; }
+/* Ghost chip — dashed and neutral so it reads as "add one" rather than as a
+   phrase that is currently filtering. Same pill metrics as a real chip. */
+.rule.ghost,
+.rule.ghost:hover {
+  border: 1px dashed var(--border-strong);
+  background: none; color: var(--text-3);
+  cursor: pointer; font: inherit; font-size: 12.5px;
+  padding: 5px 12px;
+}
+.rule.ghost:hover { color: var(--text); border-color: var(--text-3); background: var(--bg-subtle); }
+.rule.ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+input[type=text].ghost-input {
+  border-radius: 999px; padding: 5px 12px; font-size: 12.5px;
+  line-height: 1.4; width: 210px;
+  border: 1px dashed var(--border-strong); background: var(--bg);
+}
+
+
+/* threshold stepper */
+.thr-row { display: flex; align-items: center; gap: 10px; }
+.thr {
+  display: inline-flex; align-items: center;
+  border: 1px solid var(--border-strong); border-radius: var(--r); overflow: hidden;
+}
+.thr button {
+  appearance: none; background: var(--bg); border: 0; cursor: pointer;
+  font: inherit; font-size: 14px; color: var(--text-2);
+  width: 28px; height: 30px;
+}
+.thr button:hover { background: var(--bg-sink); color: var(--text); }
+.thr .val {
+  font-family: var(--mono); font-size: 12.5px; min-width: 34px;
+  text-align: center; border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border); line-height: 30px;
+}
+
+.newcat { margin-top: 14px; }
+.newcat button {
+  width: 100%; max-width: 720px; padding: 10px;
+  border: 1px dashed var(--border-strong); border-radius: var(--r);
+  background: none; color: var(--text-2); font: inherit; font-size: 12.5px;
+  cursor: pointer;
+}
+.newcat button:hover { background: var(--bg-subtle); color: var(--text); }
+
+/* ---- try-a-post: now a section at the foot of the column, not a rail ---- */
+.tryblock {
+  max-width: 720px; margin-top: 34px; padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+.tryblock h3 {
+  margin: 0 0 4px; font-size: 13px; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+}
+.tryblock h3 .live {
+  font-family: var(--mono); font-size: 10px; font-weight: 400;
+  color: var(--text-3); text-transform: uppercase; letter-spacing: .05em;
+}
+.tryblock .sub { margin: 0 0 12px; }
+.try { width: 100%; min-height: 84px; resize: vertical; line-height: 1.5; }
+
+.verdict { margin-top: 12px; }
+.v-count { font-family: var(--mono); font-size: 11px; color: var(--text-3); margin-bottom: 8px; }
+.v-clean {
+  font-size: 12.5px; color: var(--text-2); padding: 12px;
+  background: var(--bg-subtle); border-radius: var(--r);
+}
+.v-hit {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 4px 2px;
+}
+/* The category is context for the match, not the headline — quiet label,
+   not a stack of solid red blocks running down the column. */
+.v-cat {
+  font-size: 11px; color: var(--text-3); flex: none;
+  min-width: 108px; text-align: right;
+}
+/* Highlighted, not struck through. A match is text the filter FOUND — strike-
+   through reads as "deleted", which is the opposite of what happened. */
+.v-phrase {
+  font-size: 12px; color: var(--text);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 14%, transparent);
+  border-radius: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.placeholder { font-size: 12.5px; color: var(--text-3); }
+
+/* ---- activity ---- */
+.stat-head { margin: 26px 0 10px; font-size: 13px; font-weight: 600; }
+.stat-head:first-of-type { margin-top: 0; }
+
+.cstat {
+  display: flex; align-items: center; gap: 14px;
+  max-width: 720px; padding: 7px 4px;
+}
+.cstat-name { flex: none; width: 150px; font-size: 12.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cstat-track { flex: 1; height: 8px; background: var(--bg-sink);
+  border-radius: 999px; overflow: hidden; }
+.cstat-bar { height: 100%; border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 55%, transparent); }
+.cstat-n { font-family: var(--mono); font-size: 12px; color: var(--text-2);
+  font-variant-numeric: tabular-nums; min-width: 36px; text-align: right; }
+
+/* ---- activity: per-phrase counts ---- */
+.pstat {
+  display: flex; align-items: baseline; gap: 12px;
+  max-width: 720px; padding: 9px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.pstat:first-child { border-top: 1px solid var(--border); }
+.pstat-phrase { flex: 1; min-width: 0; font-size: 12.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pstat-cat { font-size: 11px; color: var(--text-3); flex: none; }
+.pstat-n { font-family: var(--mono); font-size: 12px; color: var(--text-2);
+  font-variant-numeric: tabular-nums; min-width: 36px; text-align: right; }
+
+/* A phrase you keep reading past is a phrase that is probably wrong. This is
+   the one signal the cut "corrected" count existed to surface. */
+.pstat.misfiring { background: color-mix(in srgb, var(--danger) 5%, transparent); }
+.pstat-warn { font-size: 11px; color: var(--danger); flex: none; }
+
+/* ---- shareable card ----
+   Geometry authority: settings.js's `CARD` constants object is the single
+   source both this CSS preview and drawCard()'s 1200x1200 canvas read from
+   (PRD anti-drift rule). Every pixel value below that has a CARD
+   counterpart is commented with the matching CARD.* key — keep both sides
+   in sync by hand when either changes; a full CSS-custom-property
+   generation step was judged overkill for this many values. */
+.share { max-width: 720px; margin-top: 34px; padding-top: 22px;
+  border-top: 1px solid var(--border); }
+.share-head h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.card-wrap { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+
+/* Drawn at true export size and scaled down, so what you preview is the
+   geometry that gets rendered to canvas. */
+.card-scale { width: 360px; height: 360px; flex: none; }
+.card {
+  width: 1200px; height: 1200px;                /* CARD.SIZE, CARD.SIZE */
+  transform: scale(0.3); transform-origin: top left;
+  background: #12212B; color: #fff;              /* CARD.BG */
+  display: flex; flex-direction: column;
+  font-family: var(--sans);                      /* CARD.FONT_FAMILY */
+}
+/* min-height:0 lets the rows block shrink inside the flex column instead of
+   pushing the tally and footer out of the 1200px frame. */
+.card-body { flex: 1; min-height: 0; padding: 104px 108px 0; /* CARD.PAD_TOP, CARD.PAD_X */
+  display: flex; flex-direction: column; }
+/* Anton — condensed heavy grotesque, so it sets large without wrapping and the
+   headline can be loud without stealing room from the numbers. Uppercase: the
+   face has no lowercase character to speak of at this weight.
+   The @font-face's base64 payload just below (search "Anton (Google Fonts") is
+   duplicated verbatim in settings.js's ANTON_FONT_BASE64 constant, which
+   drawCard() feeds to a FontFace() load for the canvas — CSS can't be read
+   from JS at runtime, so this is a hand-kept pair, not a generated one. The
+   settings-bundle test in test/settings.test.js re-parses this file's base64
+   payload and asserts it equals ANTON_FONT_BASE64 byte-for-byte; that test is
+   what actually catches drift if only one copy is ever updated. */
+.card-title {
+  font-family: 'Anton', var(--sans);
+  font-size: 96px; font-weight: 400; letter-spacing: .005em; /* CARD.TITLE_SIZE */
+  line-height: .9; margin: 0 0 14px; text-align: center;     /* CARD.TITLE_LINE_HEIGHT, CARD.TITLE_MARGIN_BOTTOM */
+  text-transform: uppercase;
+}
+/* Carries the headline total now, so it is a statement rather than a caption. */
+.card-sub { font-size: 34px; color: #8fa3b0; margin: 0 0 44px; text-align: center; }
+  /* CARD.SUB_SIZE, CARD.SUB_COLOR, CARD.SUB_MARGIN_BOTTOM */
+.card-sub b { color: #fff; font-weight: 660; } /* CARD.SUB_BOLD_COLOR */
+
+.card-rows { display: flex; flex-direction: column; flex: 1; min-height: 0;
+  padding-bottom: 30px; } /* CARD.ROWS_PAD_BOTTOM */
+.card-row {
+  display: flex; align-items: baseline; gap: 34px;                /* CARD.ROW_GAP */
+  padding: 28px 0; border-bottom: 2px solid rgba(255,255,255,.09); /* CARD.ROW_PAD_Y, CARD.ROW_BORDER */
+}
+.card-row:first-child { border-top: 2px solid rgba(255,255,255,.09); }
+/* Count first and large — you read the number, then what it counted. Every row
+   is styled the same; ranking is carried by order and by the numbers.
+   Top 5 categories only (CARD.MAX_ROWS), matching renderStats' .slice(0, 5). */
+.card-count { font-size: 58px; font-weight: 680; letter-spacing: -.02em; /* CARD.ROW_COUNT_SIZE */
+  color: #fff; font-variant-numeric: tabular-nums;
+  min-width: 130px; flex: none; } /* CARD.ROW_COUNT_WIDTH */
+.card-phrase { flex: 1; font-size: 40px; color: #c8d6de; min-width: 0; /* CARD.ROW_LABEL_SIZE, CARD.ROW_LABEL_COLOR */
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.card-foot {
+  background: rgba(0,0,0,.28); padding: 38px 108px; /* CARD.FOOT_BG, CARD.FOOT_PAD_Y, CARD.FOOT_PAD_X */
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-brand { display: flex; align-items: center; gap: 20px;
+  font-size: 30px; font-weight: 560; white-space: nowrap; flex: none; } /* CARD.BRAND_SIZE */
+.card-brand svg { width: 36px; height: 36px; color: #3BA9D4; flex: none; }
+/* A URL is much longer than a name — smaller, and mono so it reads as a
+   thing you can type rather than as a byline. */
+.card-by { font-family: var(--mono); font-size: 20px; color: #8fa3b0;
+  white-space: nowrap; flex: none; }
+
+.share-actions { flex: 1; min-width: 220px; }
+.share-actions .field-hint { max-width: 280px; }
+
+/* ---- backup ---- */
+.bk { max-width: 720px; margin-bottom: 34px; }
+.bk-row {
+  display: flex; align-items: flex-start; gap: 24px;
+  padding: 18px 4px; border-bottom: 1px solid var(--border);
+}
+.bk-row:first-child { border-top: 1px solid var(--border); }
+.bk-txt { flex: 1; min-width: 0; }
+.bk-txt h3 { margin: 0 0 3px; font-size: 13px; font-weight: 600; }
+.bk-txt p { margin: 0; font-size: 12px; color: var(--text-3); line-height: 1.5; }
+.bk-row .btn { flex: none; }
+
+.drop {
+  max-width: 720px; margin-top: 4px; padding: 30px;
+  border: 1px dashed var(--border-strong); border-radius: var(--r);
+  text-align: center; cursor: pointer; background: none;
+  transition: background .12s ease, border-color .12s ease;
+}
+.drop:hover { background: var(--bg-subtle); border-color: var(--text-3); }
+.drop:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.drop.over { background: var(--accent-soft); border-color: var(--accent); }
+.drop-in { display: flex; flex-direction: column; gap: 3px; }
+.drop-in b { font-size: 12.5px; font-weight: 550; }
+.drop-in span { font-size: 12px; color: var(--text-3); }
+
+/* Restoring overwrites everything, so it states what it will do and what it
+   will replace before the button appears — not a modal after the fact. */
+.rpv {
+  max-width: 720px; margin-top: 16px; padding: 16px;
+  border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--bg-subtle);
+}
+.rpv h4 { margin: 0 0 10px; font-size: 12.5px; font-weight: 600; }
+.rpv dl { margin: 0 0 14px; display: grid;
+  grid-template-columns: auto 1fr; gap: 5px 14px; }
+.rpv dt { font-size: 12px; color: var(--text-3); }
+.rpv dd { margin: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+.rpv-warn { font-size: 12px; color: var(--danger); margin: 0 0 12px; line-height: 1.5; }
+.rpv-actions { display: flex; gap: 8px; }
+
+/* ---- muted people: same row metrics as a category, minus the accordion ---- */
+.mute {
+  display: flex; align-items: center; gap: 10px;
+  max-width: 720px; padding: 11px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.mute:first-child { border-top: 1px solid var(--border); }
+.mute:hover { background: var(--bg-subtle); }
+.mute-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 550;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mute-name.gone { font-weight: 400; color: var(--text-3); }
+.mute-note { font-size: 12px; color: var(--text-3); }
+
+/* Unmute stays hidden until hover, like the category row actions. Undo does
+   not — a row that just changed under you has to advertise the way back. */
+.mute .cat-action { opacity: 0; }
+.mute:hover .cat-action,
+.mute .cat-action:focus-visible,
+.mute.undone .cat-action { opacity: 1; }
+
+/* ---- trusted people: reuses .mute for list rows; own styling for the
+   add-by-name input row and its inline duplicate-name error ---- */
+.trust-add { display: flex; gap: 8px; max-width: 480px; margin: 4px 0 8px; }
+.trust-add input { flex: 1; min-width: 0; padding: 7px 10px; font-size: 13px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+.trust-error { font-size: 12px; color: var(--danger); margin: 0 0 10px; min-height: 15px; }
+
+@media (max-width: 820px) {
+  .shell { grid-template-columns: 1fr; }
+  .opt-nav { flex-direction: row; align-items: center; gap: 4px; padding: 10px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .opt-brand { padding: 0 8px 0 4px; }
+  .nav-foot { margin-top: 0; padding-top: 0; border-top: 0; margin-left: auto; }
+  .ver { display: none; }
+  .opt-main { padding: 22px 18px 50px; }
+}

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <header class="head">
+    <div class="mark">Slop<br><em>Filter</em></div>
+    <span class="on">ON · linkedin.com</span>
+  </header>
+
+  <section class="sec">
+    <h2>When a post is flagged</h2>
+    <div class="opt">
+      <label class="opt-row"><input type="radio" name="flagmode" value="collapse">
+        <span class="opt-txt"><span class="opt-t">Collapse it to one line</span><span class="opt-s">Notice only, post body behind a Show button.</span></span></label>
+      <label class="opt-row"><input type="radio" name="flagmode" value="label">
+        <span class="opt-txt"><span class="opt-t">Show the post with a notice</span><span class="opt-s">Nothing is hidden — you decide what to skip.</span></span></label>
+    </div>
+  </section>
+
+  <section class="sec"><h2>Filters</h2><div id="filters"></div></section>
+  <section class="sec"><h2>Muted</h2><div id="mutes"></div></section>
+
+  <footer class="foot"><span>v1.2.0</span><button class="settings-link" id="open-settings">Settings</button></footer>
+
+  <script src="filters.js"></script>
+  <script src="storage.js"></script>
+  <script src="popup.js"></script>
+</body></html>
