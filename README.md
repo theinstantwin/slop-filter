@@ -22,11 +22,11 @@ Every "let that sink in" a chatbot writes today, it learned from a person who wr
 
 ## Here's how it works
 
-- **Your feed gets quiet.** AI-written filler, engagement bait and hustle posts fold down to one thin line.
-- **You see why.** Every flagged post shows the exact phrase that caught it.
-- **You stay in charge.** One click opens any post. One more teaches the filter what to keep.
-- **Good posts stay untouched.** Real updates from real people look exactly like they always have.
-- **Nothing leaves your browser.** No account, no tracking, no server.
+- **Say goodbye to noise.** All the AI and human slop disappears, and what you want to see comes back into the feed.
+- **On-device analysis.** Every post is read right in your browser, and each flagged one shows the exact phrase that caught it.
+- **Ultimate personalization.** Edit any phrase, build your own categories, and choose whose posts always come through.
+- **Resurface what's valuable.** With the slop out of the way, real updates from the people you know stand out again.
+- **Nothing leaves your browser.** No account, no tracking, no AI, no server.
 
 The filter reads every post as your feed loads and pulls out the slop before you have to wade through it. What's left is the reason you joined LinkedIn in the first place. The people you know and the work they're proud of. Install it once and your feed stays clean for good. (Yep, you can even get rid of all those long emoji posts.)
 
