@@ -2,7 +2,6 @@
   "manifest_version": 3,
   "name": "Slop Filter for LinkedIn",
   "version": "1.2.0",
-  "version_name": "1.2.0-dev",
   "description": "Flags low-quality LinkedIn posts and shows you the phrase it caught.",
   "permissions": ["storage"],
   "host_permissions": ["https://www.linkedin.com/*"],

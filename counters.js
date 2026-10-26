@@ -22,6 +22,10 @@
 
 const COUNTERS_KEY = 'sfCounters';
 const DEBOUNCE_MS = 2000;
+// Blank rules ("drop a ___ below") catch a different phrase almost every
+// time, so the phrase map would grow for as long as the extension is
+// installed. Past this many, the least-caught phrases are dropped at flush.
+const MAX_PHRASES = 500;
 
 function scEmptyCounters() {
   return { phrases: {}, promoted: 0, boosted: 0 };
@@ -99,6 +103,7 @@ async function flush() {
   }
 
   pending = scEmptyCounters();
+  scTrim(merged.phrases);
 
   if (typeof chrome === 'undefined' || !chrome.storage) return;
   try {
@@ -106,6 +111,13 @@ async function flush() {
   } catch (err) {
     if (!scContextDead(err)) throw err;
   }
+}
+
+function scTrim(phrases) {
+  const keys = Object.keys(phrases);
+  if (keys.length <= MAX_PHRASES) return;
+  keys.sort((a, b) => phrases[a].caught - phrases[b].caught);
+  for (const k of keys.slice(0, keys.length - MAX_PHRASES)) delete phrases[k];
 }
 
 function scheduleFlush() {
@@ -133,5 +145,5 @@ if (typeof document !== 'undefined') {
 const sc = { record, flush, scheduleFlush, readAll };
 
 if (typeof module !== 'undefined') {
-  module.exports = { record, flush, scheduleFlush, readAll };
+  module.exports = { record, flush, scheduleFlush, readAll, MAX_PHRASES };
 }

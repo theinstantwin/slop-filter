@@ -9,10 +9,10 @@
  *
  * This file must therefore not declare ANY top-level identifier that an
  * earlier script already declares. Importing them under their own names —
- * `var { FILTERS } = require(...)` — is a SyntaxError in the browser
- * ("Identifier 'FILTERS' has already been declared") because `var` is hoisted
+ * `var { SEED_CATEGORIES } = require(...)` — is a SyntaxError in the browser
+ * ("Identifier 'SEED_CATEGORIES' has already been declared") because `var` is hoisted
  * and declared at parse time whether or not its `if` branch ever runs, and a
- * `var` cannot shadow filters.js's `const FILTERS` in the same scope. That
+ * `var` cannot shadow filters.js's `const SEED_CATEGORIES` in the same scope. That
  * error kills the entire content-script bundle silently.
  *
  * So: one uniquely-named binding, resolved per environment. `sf` collides with
@@ -31,8 +31,9 @@ const sf = (typeof module !== 'undefined' && typeof require !== 'undefined')
   : {
       SEL, getPosts, getAuthor, getPostText, whenFeedReady,
       isPromoted, isBoosted,
-      findMatches, FILTERS,
-      load, save, mute, allowPhrase, unallowPhrase, setCategoryOn, setThreshold,
+      findMatches,
+      load, save, migrate, STORAGE_KEY,
+      mute, allowPhrase, unallowPhrase, setCategoryOn, setThreshold,
       ...sc,
       buildNotice, attachMenuWatcher,
     };
@@ -82,14 +83,12 @@ function processPost(post, current) {
   // advertiser, not a person the reader chose to mute or not.
   if (current.hidePromoted && sf.isPromoted(post)) {
     post.dataset.sfPromoted = 'true';
-    sf.record('promoted');
-    sf.scheduleFlush();
+    countOnce(post, () => sf.record('promoted'));
     return true;
   }
   if (current.hideBoosted && sf.isBoosted(post)) {
     post.dataset.sfBoosted = 'true';
-    sf.record('boosted');
-    sf.scheduleFlush();
+    countOnce(post, () => sf.record('boosted'));
     return true;
   }
 
@@ -97,6 +96,10 @@ function processPost(post, current) {
     post.dataset.sfMuted = 'true';
     return false;
   }
+
+  // "Read anyway" from the ··· menu is the reader's call on this post and
+  // outlives a settings change; only ads and mutes above still apply.
+  if (post.dataset.sfDismissed === 'true') return false;
 
   const text = sf.getPostText(post);
   const matches = sf.findMatches(text, {
@@ -107,17 +110,44 @@ function processPost(post, current) {
 
   post.dataset.sfFlagged = 'true';
   post.dataset.sfFilters = [...new Set(matches.map(m => m.filterName))].join(',');
-  // Not idempotent across a SETTINGS_UPDATED reload: sfProcessed lives on the
-  // DOM node, so a reload re-scans every visible post and re-counts it here.
-  // Counters only ever drift upward — by design, not a bug to fix.
-  for (const m of matches) sf.record('caught', m.phrase);
-  sf.scheduleFlush();
+  // A settings change re-judges every post on the page (applySettings), so
+  // count a post the first time it is caught, not on every re-judge.
+  countOnce(post, () => { for (const m of matches) sf.record('caught', m.phrase); });
 
-  const collapsed = current.flagMode === 'collapse';
+  // A post the reader opened with "Show post" stays open across re-judging.
+  const collapsed = current.flagMode === 'collapse' && post.dataset.sfRevealed !== 'true';
   if (collapsed) post.dataset.sfCollapsed = 'true';
 
   renderNotice(post, matches, author, collapsed);
   return true;
+}
+
+function countOnce(post, record) {
+  if (post.dataset.sfCaught) return;
+  post.dataset.sfCaught = 'true';
+  record();
+  sf.scheduleFlush();
+}
+
+// Every verdict processPost writes. Not here, so they survive a re-judge:
+// sfCaught/sfCounted (counters never count a post twice), sfRevealed and
+// sfDismissed (the reader's own choices), sfOpenPost (menu bookkeeping).
+const VERDICT_KEYS = ['sfProcessed', 'sfFlagged', 'sfFilters', 'sfCollapsed',
+  'sfMuted', 'sfPromoted', 'sfBoosted'];
+
+/**
+ * Re-judge every post already on the page against new settings, in place.
+ * Replaces the old full-page reload: a reload threw away whatever the reader
+ * was typing in LinkedIn's composer and their scroll position.
+ */
+function applySettings(next) {
+  settings = next;
+  for (const post of sf.getPosts()) {
+    if (!post.dataset.sfProcessed) continue;
+    post.querySelector('[data-sf-notice]')?.remove();
+    for (const k of VERDICT_KEYS) delete post.dataset[k];
+  }
+  scanFeed();
 }
 
 /**
@@ -154,6 +184,7 @@ function onNoticeAction(post, action, payload, matches, author) {
       // anyway, same as onReadAnyway from the ··· menu — count it once per
       // post, not once per toggle.
       delete post.dataset.sfCollapsed;
+      post.dataset.sfRevealed = 'true';
       if (!post.dataset.sfCounted) {
         post.dataset.sfCounted = 'true';
         for (const m of matches) sf.record('readPast', m.phrase);
@@ -161,6 +192,7 @@ function onNoticeAction(post, action, payload, matches, author) {
       }
     } else {
       post.dataset.sfCollapsed = 'true';
+      delete post.dataset.sfRevealed;
     }
 
     renderNotice(post, matches, author, post.dataset.sfCollapsed === 'true');
@@ -230,10 +262,6 @@ function scanFeed() {
 
 async function init() {
   settings = await sf.load();
-  // TEMPORARY DEBUG STAMP — remove before release.
-  document.documentElement.dataset.sfStage = 'loaded:schema' +
-    (settings && settings.schema) + ':cats=' +
-    (settings && settings.categories ? settings.categories.length : 'none');
   const feed = await sf.whenFeedReady();
   if (!feed) return;
 
@@ -287,39 +315,41 @@ async function init() {
         sf.scheduleFlush();
       }
       open.querySelector('[data-sf-notice]')?.remove();
+      open.dataset.sfDismissed = 'true';
       delete open.dataset.sfFlagged;
       delete open.dataset.sfCollapsed;
     },
-    // Disabling a whole filter category is rare, and every already-rendered
-    // notice on screen would now be stale. A reload is heavy but guarantees
-    // the feed and the settings agree.
+    // Turning a category off makes every notice from it stale, so the page
+    // is re-judged in place.
     onAllowFilter: async name => {
       const cat = settings.categories.find(c => c.name === name);
       if (!cat) return;
-      settings = sf.setCategoryOn(settings, cat.id, false);
+      // Apply first: the save's onChanged echo then matches and is skipped.
+      applySettings(sf.setCategoryOn(settings, cat.id, false));
       await sf.save(settings);
-      await sf.flush();
-      location.reload();
     },
   });
 }
 
+/**
+ * Settings changed somewhere: the popover, the settings page, a restore, or a
+ * notice in another LinkedIn tab. This tab's own saves come back through here
+ * too and are skipped, so allowing a phrase doesn't rebuild the receipt the
+ * reader is clicking in.
+ */
+function onStorageChanged(changes, area) {
+  if (area !== 'local' || !changes[sf.STORAGE_KEY]) return;
+  const next = changes[sf.STORAGE_KEY].newValue;
+  if (!next || JSON.stringify(next) === JSON.stringify(settings)) return;
+  applySettings(sf.migrate(next));
+}
+
 if (typeof chrome !== 'undefined' && chrome.runtime) {
-  chrome.runtime.onMessage.addListener(msg => {
-    if (msg.type === 'SETTINGS_UPDATED') sf.flush().then(() => location.reload());
-  });
-  /* TEMPORARY DEBUG STAMPS — remove before release. Lifecycle stages written
-   * onto the page DOM so a page-world probe can read them even though
-   * isolated-world console/errors are invisible from outside. */
-  document.documentElement.dataset.sfStage = 'parsed';
-  init().then(() => {
-    document.documentElement.dataset.sfStage = 'complete:' +
-      document.querySelectorAll('[data-sf-processed]').length + ' processed';
-  }).catch(e => {
-    document.documentElement.dataset.sfError = String((e && e.stack) || e).slice(0, 600);
-  });
+  chrome.storage?.onChanged?.addListener(onStorageChanged);
+  init();
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { processPost, onNoticeAction, renderNotice, tagPostOnMenuOpen };
+  module.exports = { processPost, onNoticeAction, renderNotice, tagPostOnMenuOpen,
+    applySettings, onStorageChanged };
 }

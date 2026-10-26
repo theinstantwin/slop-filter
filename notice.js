@@ -23,13 +23,7 @@ const CSS = `
 /* Sits at the same x-position as a post's avatar, so a saturated circle
    breaks a pattern the eye is already scanning down the feed. This is what
    makes the notice catchable at scroll speed without a louder wash. */
-.glyph {
-  width:22px; height:22px; border-radius:50%; flex-shrink:0;
-  background:#C62D18; color:#fff;
-  display:flex; align-items:center; justify-content:center;
-  font-family:"SlopFilter Display",Rosario,-apple-system,system-ui,sans-serif;
-  font-weight:700; font-size:13px; line-height:1; padding-top:1px;
-}
+.glyph { width:22px; height:22px; flex-shrink:0; display:block; }
 .mark {
   font-family:"SlopFilter Display",Rosario,-apple-system,system-ui,sans-serif;
   font-weight:700;
@@ -134,6 +128,22 @@ const CSS = `
 }
 `;
 
+/* The pig badge: the logo's pig mark, viewBox cropped to the
+   circle so it fills the 22px slot the old "S" glyph used. */
+const PIG_BADGE =
+  '<svg viewBox="16 16 96 96" width="22" height="22">' +
+  '<circle cx="64" cy="64" r="48" fill="#C62D18"/>' +
+  '<g transform="translate(64 64) scale(.9) translate(-64 -59)">' +
+  '<path d="M36 50 Q30 34 36 27 Q44 26 56 38 Z" fill="#FEFDFB" stroke="#FEFDFB" stroke-width="4" stroke-linejoin="round"/>' +
+  '<path d="M92 50 Q98 34 92 27 Q84 26 72 38 Z" fill="#FEFDFB" stroke="#FEFDFB" stroke-width="4" stroke-linejoin="round"/>' +
+  '<ellipse cx="64" cy="64" rx="34" ry="28" fill="#FEFDFB"/>' +
+  '<circle cx="50" cy="56" r="3.8" fill="#12212B"/>' +
+  '<circle cx="78" cy="56" r="3.8" fill="#12212B"/>' +
+  '<ellipse cx="64" cy="73" rx="18" ry="12.5" fill="#FEFDFB" stroke="#C62D18" stroke-width="4"/>' +
+  '<ellipse cx="57.5" cy="73" rx="3" ry="5" fill="#C62D18"/>' +
+  '<ellipse cx="70.5" cy="73" rx="3" ry="5" fill="#C62D18"/>' +
+  '</g></svg>';
+
 /* setThreshold clamps at this ceiling, so a raise past it could never take
    effect — rows at or above it show evidence with no dead button. */
 const LIMIT_CEILING = 15;
@@ -163,7 +173,7 @@ function buildNotice({ matches, author, collapsed = true, onAction = () => {} })
   // screen reader announcing "S" would be noise.
   const glyph = document.createElement('span');
   glyph.className = 'glyph';
-  glyph.textContent = 'S';
+  glyph.innerHTML = PIG_BADGE; // static constant, no page data
   glyph.setAttribute('aria-hidden', 'true');
   wrap.appendChild(glyph);
 

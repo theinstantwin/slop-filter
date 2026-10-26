@@ -1,6 +1,6 @@
 /**
  * Popover script. In the browser, popup.html loads filters.js and
- * storage.js as plain scripts before this one, so `FILTERS`, `load`,
+ * storage.js as plain scripts before this one, so `findMatches`, `load`,
  * `save`, `unmute` are already globals in that shared page scope. Under
  * `node --test`, this file is required directly with no such scope.
  *
@@ -15,7 +15,7 @@
  */
 const pf = (typeof module !== 'undefined' && typeof require !== 'undefined')
   ? { ...require('./filters.js'), ...require('./storage.js') }
-  : { FILTERS, load, save, unmute, setCategoryOn, setThreshold };
+  : { load, save, unmute, setCategoryOn, setThreshold };
 
 function renderFilters(doc, settings) {
   const host = doc.getElementById('filters');
@@ -122,13 +122,8 @@ if (typeof chrome !== 'undefined' && chrome.storage) {
       settingsLink.addEventListener('click', () => chrome.runtime.openOptionsPage());
     }
 
-    const persist = async () => {
-      await pf.save(settings);
-      const tabs = await chrome.tabs.query({ url: 'https://www.linkedin.com/*' });
-      for (const t of tabs) {
-        chrome.tabs.sendMessage(t.id, { type: 'SETTINGS_UPDATED' }).catch(() => {});
-      }
-    };
+    // Open LinkedIn tabs re-judge their posts from chrome.storage.onChanged.
+    const persist = () => pf.save(settings);
 
     document.addEventListener('change', async e => {
       if (e.target.name === 'flagmode') { settings.flagMode = e.target.value; await persist(); }

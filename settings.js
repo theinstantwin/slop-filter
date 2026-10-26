@@ -18,7 +18,7 @@
  */
 const st = (typeof module !== 'undefined' && typeof require !== 'undefined')
   ? { ...require('./filters.js'), ...require('./storage.js'), ...require('./counters.js') }
-  : { ...{ FILTERS, findMatches, DEFAULT_THRESHOLDS, BLANK, compile, SEED_CATEGORIES, COUNTERS },
+  : { ...{ findMatches, BLANK, compile, SEED_CATEGORIES, COUNTERS },
       ...{ STORAGE_KEY, DEFAULTS, migrate, upgradeToV2, allowPhrase, unallowPhrase, mute, unmute,
            allowAuthor, unallowAuthor,
            setCategoryOn, setCategoryDef, setThreshold, addRule, removeRule, upsertCustomCategory,
@@ -1087,7 +1087,7 @@ function buildExport(kind, settings, counters) {
 function isValidBackupCategory(cat) {
   if (!cat || typeof cat !== 'object') return false;
   if (typeof cat.name !== 'string' || !cat.name) return false;
-  if (cat.counting === true) return typeof cat.threshold === 'number';
+  if (cat.counting === true) return Number.isFinite(cat.threshold);
   if (cat.labs === true) return true;
   return Array.isArray(cat.rules) && cat.rules.every(r => typeof r === 'string');
 }
@@ -1105,6 +1105,10 @@ function validateBackup(parsed) {
   if (!parsed.categories.every(isValidBackupCategory)) {
     return { ok: false, error: 'One or more categories in that file are missing a name or rules — this does not look like a Slop Filter export.' };
   }
+  const strings = a => a === undefined || (Array.isArray(a) && a.every(x => typeof x === 'string'));
+  if (!strings(parsed.mutedAuthors) || !strings(parsed.whitelistedAuthors)) {
+    return { ok: false, error: 'The people lists in that file are damaged — this does not look like a Slop Filter export.' };
+  }
   return { ok: true, kind: parsed.kind === 'slop-filter-rules' ? 'rules' : 'all' };
 }
 
@@ -1118,7 +1122,11 @@ function applyBackup(parsed, currentSettings) {
   const merged = {
     ...currentSettings,
     schema: 2,
-    categories: parsed.categories,
+    // Same 2–15 range setThreshold enforces: a threshold of 0 from a hand-
+    // edited file would flag every post on the feed.
+    categories: parsed.categories.map(c => (c.counting
+      ? { ...c, threshold: Math.max(2, Math.min(15, c.threshold)) }
+      : c)),
     hidePromoted: !!parsed.hidePromoted,
     hideBoosted: !!parsed.hideBoosted,
   };
@@ -1290,24 +1298,7 @@ if (typeof module !== 'undefined') {
     activityModel, renderStats,
     CARD, ANTON_FONT_BASE64, cardSubhead, drawCard, wireShareCard,
     buildExport, validateBackup, isValidBackupCategory, applyBackup, wireBackupPanel,
-    notifyLinkedInTabs,
   };
-}
-
-/* Tells any open LinkedIn tabs to re-read settings and reload — same
-   mechanism popup.js's persist() uses (chrome.tabs.query by URL needs only
-   the host_permission we already have for linkedin.com, no "tabs"
-   permission), so a category toggle, mute, or backup restore made from the
-   settings page takes effect on an already-open feed exactly as it would
-   from the popover. Errors are swallowed per-tab the same way popup.js does
-   (a tab that navigated away or has no content script mid-message is not
-   this page's problem). */
-async function notifyLinkedInTabs() {
-  if (typeof chrome === 'undefined' || !chrome.tabs) return;
-  const tabs = await chrome.tabs.query({ url: 'https://www.linkedin.com/*' });
-  for (const t of tabs) {
-    chrome.tabs.sendMessage(t.id, { type: 'SETTINGS_UPDATED' }).catch(() => {});
-  }
 }
 
 if (typeof chrome !== 'undefined' && chrome.storage) {
@@ -1321,17 +1312,11 @@ if (typeof chrome !== 'undefined' && chrome.storage) {
     const metaBlob = await chrome.storage.local.get(['sfMeta']);
     st.meta = metaBlob.sfMeta || {};
 
-    // The save itself is immediate (never debounced — every persist() call
-    // still writes right away), but the LinkedIn-tab notification is
-    // debounced ~1500ms: a run of chip edits (adding several phrases in a
-    // row) would otherwise reload the feed once per keystroke. Only the
-    // notify, not the save, waits.
-    let notifyTimer = null;
+    // Open LinkedIn tabs pick the change up from chrome.storage.onChanged
+    // (content.js) and re-judge their posts in place; nothing to notify.
     st.persist = async () => {
       await st.save(st.settings);
       flashSaved(document);
-      clearTimeout(notifyTimer);
-      notifyTimer = setTimeout(notifyLinkedInTabs, 1500);
     };
 
     wirePanelSwitching(document);

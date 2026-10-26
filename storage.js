@@ -7,7 +7,7 @@
  *
  * Schema 2 moves categories INTO the blob (filters.js's SEED_CATEGORIES is
  * only ever the seed — every read after first install goes through the
- * stored categories array, never back through FILTERS). Every migration
+ * stored categories array, never back through the seed). Every migration
  * function takes SEED as a defaulted parameter rather than closing over a
  * module-level require: in the browser, storage.js loads as a plain
  * <script> AFTER filters.js in the same isolated-world scope (manifest.json,
@@ -15,7 +15,7 @@
  * already a declared name in that shared scope by the time this file runs.
  * A bare `const { SEED_CATEGORIES } = require(...)` here would be a
  * SyntaxError in that scope ("already been declared") — the same failure
- * content.js's header documents for `FILTERS`. Under Node, where this file
+ * content.js's header documents for `SEED_CATEGORIES`. Under Node, where this file
  * is required standalone with no ambient SEED_CATEGORIES global, the guarded
  * require below supplies it.
  */

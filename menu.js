@@ -20,8 +20,7 @@ const MENU_MARKER = 'data-sf-menu';
  * LinkedIn does not close its menu when one of OUR items is clicked — it
  * only knows about its own. Measured live (2026-09-01): a synthetic Escape
  * keydown bubbled from inside the menu closes it, so every item that acts
- * in place sends one after its handler. Allow-filter skips this: it reloads
- * the page, and reload wins any race with the close animation.
+ * in place sends one after its handler.
  */
 function closeMenu(item) {
   const win = item.ownerDocument.defaultView;
@@ -44,7 +43,7 @@ const ITEM_STYLE =
   'padding:6px 16px 6px 48px;box-sizing:border-box;cursor:pointer;' +
   'font:600 14px/1.25 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.75)';
 
-function makeItem(doc, label, sub, onClick, { closes = true } = {}) {
+function makeItem(doc, label, sub, onClick) {
   const item = doc.createElement('div');
   item.setAttribute('role', 'menuitem');
   item.setAttribute('tabindex', '0');
@@ -61,7 +60,7 @@ function makeItem(doc, label, sub, onClick, { closes = true } = {}) {
   item.addEventListener('mouseleave', () => { item.style.background = ''; });
   item.addEventListener('click', e => {
     onClick(e);
-    if (closes) closeMenu(item);
+    closeMenu(item);
   });
   item.addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); item.click(); }
@@ -95,8 +94,7 @@ function decorate(menu, ctx, handlers) {
     // Short enough to stay on one line at LinkedIn's 256px menu width.
     menu.appendChild(makeItem(doc, `Allow ${name}`,
       'Turn this filter off everywhere',
-      () => handlers.onAllowFilter?.(name),
-      { closes: false }));
+      () => handlers.onAllowFilter?.(name)));
   }
 }
 

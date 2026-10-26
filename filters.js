@@ -6,158 +6,24 @@
  * threshold instead.
  */
 
-const FILTERS = {
-  aiSlop: {
-    id: 'aiSlop',
-    name: 'AI Slop',
-    description: 'Sentence shapes common to generated text',
-    patterns: [
-      /let me break (?:this|it) down/gi,
-      /read that again/gi,
-      /let that sink in/gi,
-      /most people don'?t realize/gi,
-      /here'?s the thing/gi,
-      /here'?s what (?:nobody|no one) tells you/gi,
-      /it'?s not [^.—]{1,40}—\s*it'?s [^.]{1,40}/gi,
-    ],
-  },
-  fakeInsight: {
-    id: 'fakeInsight',
-    name: 'Fake Insight',
-    description: 'Fake profundity and thought-leadership clichés',
-    patterns: [
-      /the truth is/gi,
-      /changes everything/gi,
-      /nobody talks about this/gi,
-      /somewhere along the way/gi,
-    ],
-  },
-  humbleBrag: {
-    id: 'humbleBrag',
-    name: 'Humble Brag',
-    description: 'Fake humility announcements',
-    patterns: [
-      /humbled to announce/gi,
-      /excited to announce/gi,
-      /grateful to share/gi,
-      /blessed to announce/gi,
-      /honored to share/gi,
-    ],
-  },
-  engagementBait: {
-    id: 'engagementBait',
-    name: 'Engagement Bait',
-    description: 'Fishing for comments and reactions',
-    patterns: [
-      /thoughts\s*\?/gi,
-      /agree\s*\?/gi,
-      /hot take/gi,
-      /unpopular opinion/gi,
-      /change my mind/gi,
-      // Comment/reply-to-unlock: a quoted trigger word promising something
-      // in exchange for a PUBLIC comment or reply, to game the algorithm.
-      // Deliberately excludes DM/message-me CTAs — those move the ask to a
-      // private channel and aren't polluting the public feed the same way.
-      // Connector shapes written once per trigger word (comment/reply)
-      // rather than duplicated ad hoc.
-      /drop a [^.—]{1,40} below/gi,
-      /drop a [^.—]{1,40} in the comments/gi,
-      /type [^.—]{1,40} below/gi,
-      /comment [^.—]{1,40} and i'?ll/gi,
-      /reply [^.—]{1,40} and i'?ll/gi,
-      /comment [^.—]{1,40} to get/gi,
-      /reply [^.—]{1,40} to get/gi,
-      /comment [^.—]{1,40} for the/gi,
-      /reply [^.—]{1,40} for the/gi,
-      /comment [^.—]{1,40} below/gi,
-      /reply [^.—]{1,40} below/gi,
-      /comment [^.—]{1,40} if you want/gi,
-      /reply [^.—]{1,40} if you want/gi,
-      /comment [^.—]{1,40} and it'?s yours/gi,
-      /reply [^.—]{1,40} and it'?s yours/gi,
-      /comment and i'?ll send/gi,
-      /reply and i'?ll send/gi,
-      /comment to claim your/gi,
-      /reply to claim your/gi,
-    ],
-  },
-  selfPromotion: {
-    id: 'selfPromotion',
-    name: 'Self-promotion CTA',
-    description: 'Pitching a follow instead of standing on its own',
-    patterns: [
-      /follow me for/gi,
-      /follow for more/gi,
-      /follow along for/gi,
-      /follow along if/gi,
-      /follow if you want/gi,
-      /hit follow/gi,
-      /hit that follow/gi,
-      /click follow/gi,
-      /tap follow/gi,
-      /smash that follow/gi,
-      /give me a follow/gi,
-      /give this a follow/gi,
-      /ring the bell/gi,
-    ],
-  },
-  hustleCulture: {
-    id: 'hustleCulture',
-    name: 'Hustle Culture',
-    description: 'Grind mentality and FOMO language',
-    patterns: [
-      /rise and grind/gi,
-      /left behind/gi,
-      /hustle harder/gi,
-      /outwork everyone/gi,
-      /while you'?re sleeping/gi,
-    ],
-  },
-  /**
-   * Catches ORGANIC influencer disclosures only — a creator taking brand money
-   * and saying so. It does NOT catch LinkedIn's own paid placements: those are
-   * marked `Promoted` in the actor block, which is not part of the post body
-   * this filter scans, and a text pattern for it would fire on every post about
-   * being promoted at work. That needs structural detection in dom.js.
-   * Decided for 1.2: hide entirely.
-   */
-  sponsored: {
-    id: 'sponsored',
-    name: 'Sponsored',
-    description: 'Paid partnerships from creators (not LinkedIn ads — see BACKLOG)',
-    patterns: [
-      /#sponsored/gi,
-      /#ad\b/gi,
-      /#paidpartnership/gi,
-      /partnering with/gi,
-      /proud to partner/gi,
-    ],
-  },
-  hashtagOverload: {
-    id: 'hashtagOverload',
-    name: 'Hashtag Overload',
-    description: 'Too many hashtags in one post',
-    count: text => (text.match(/#\w+/g) || []).length,
-    unit: 'hashtags',
-  },
-  emojiOverload: {
-    id: 'emojiOverload',
-    name: 'Emoji Overload',
-    description: 'Too many emoji in one post',
-    count: text => (text.match(/\p{Extended_Pictographic}/gu) || []).length,
-    unit: 'emoji',
-  },
-};
-
-const DEFAULT_THRESHOLDS = { hashtagOverload: 5, emojiOverload: 5 };
-
 const BLANK = '___';
+// Each blank is a bounded wildcard, but adjacent wildcards backtrack against
+// each other: measured on a 400-char post, 2 blanks take 4ms, 4 take 1.3s,
+// 6 take 54s — long enough to freeze the LinkedIn tab. A rule can arrive from
+// a shared rules file, so the cap lives here, not in the UI. Blanks past the
+// cap match as literal "___".
+const MAX_BLANKS = 2;
 const _compileCache = new Map();
 function compile(txt) {
   let re = _compileCache.get(txt);
   if (!re) {
     const esc = txt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    re = new RegExp(esc.split(BLANK).join('[^.]{1,40}'), 'gi');
+    const parts = esc.split(BLANK);
+    let src = parts[0];
+    for (let i = 1; i < parts.length; i++) {
+      src += (i <= MAX_BLANKS ? '[^.]{1,40}' : BLANK) + parts[i];
+    }
+    re = new RegExp(src, 'gi');
     _compileCache.set(txt, re);
   }
   re.lastIndex = 0;
@@ -165,8 +31,8 @@ function compile(txt) {
 }
 
 const COUNTERS = {
-  hashtagOverload: FILTERS.hashtagOverload.count,
-  emojiOverload: FILTERS.emojiOverload.count,
+  hashtagOverload: text => (text.match(/#\w+/g) || []).length,
+  emojiOverload: text => (text.match(/\p{Extended_Pictographic}/gu) || []).length,
 };
 
 // Labs: hardcoded, non-user-editable regex patterns. Never read from
@@ -338,54 +204,10 @@ function findMatches(text, opts = {}) {
         }
       }
     }
-    return out;
-  }
-
-  const enabled = opts.enabled || {};
-  const allowed = (opts.allowed || []).map(p => p.toLowerCase());
-  const thresholds = { ...DEFAULT_THRESHOLDS, ...(opts.thresholds || {}) };
-
-  for (const filter of Object.values(FILTERS)) {
-    if (!enabled[filter.id]) continue;
-
-    if (filter.count) {
-      const n = filter.count(text);
-      const limit = thresholds[filter.id];
-      if (n >= limit) {
-        out.push({
-          filterId: filter.id,
-          filterName: filter.name,
-          phrase: `${n} ${filter.unit}`,
-          index: -1,
-          counting: true,
-          count: n,
-          limit,
-          unit: filter.unit,
-        });
-      }
-      continue;
-    }
-
-    for (const pattern of filter.patterns) {
-      pattern.lastIndex = 0;
-      let hit;
-      while ((hit = pattern.exec(text)) !== null) {
-        const phrase = hit[0].trim();
-        if (!allowed.includes(phrase.toLowerCase())) {
-          out.push({
-            filterId: filter.id,
-            filterName: filter.name,
-            phrase,
-            index: hit.index,
-          });
-        }
-        if (hit.index === pattern.lastIndex) pattern.lastIndex++;
-      }
-    }
   }
   return out;
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { FILTERS, findMatches, DEFAULT_THRESHOLDS, BLANK, compile, SEED_CATEGORIES, COUNTERS, LABS_PATTERNS };
+  module.exports = { findMatches, BLANK, MAX_BLANKS, compile, SEED_CATEGORIES, COUNTERS, LABS_PATTERNS };
 }
