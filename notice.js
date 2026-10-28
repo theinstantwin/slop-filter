@@ -247,6 +247,11 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   function setOpen(a, on) {
     a.dataset.open = String(on);
     a.querySelector('[data-trigger]').setAttribute('aria-expanded', String(on));
+    // An open popover hangs below the bar; lift this notice above the next
+    // post's notice so the card isn't painted underneath it.
+    const anyOpen = anchors.some(x => x.dataset.open === 'true');
+    host.style.position = anyOpen ? 'relative' : '';
+    host.style.zIndex = anyOpen ? '20' : '';
   }
   function open(a) {
     // an anchor nested in another (a tag inside "+N") keeps its parent open
@@ -352,7 +357,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   // limit popover (nested) and there is only ever one copy of each.
   const moreBtn = el('button', 'more');
   moreBtn.type = 'button';
-  const rest = el('div', 'rest');
+  const rest = el('div', 'card rest'); // a real popover card, like every other tag's
   rest.setAttribute('aria-label', 'More reasons');
   const moreAnchor = makeAnchor('more', moreBtn, rest, '', false);
   moreAnchor.dataset.more = 'true';
