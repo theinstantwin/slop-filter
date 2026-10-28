@@ -2,7 +2,7 @@
 
 /* Rosario 700, subsetted to the characters the wordmark uses (~6.5KB) and
    inlined so the notice renders offline and makes no third-party request from
-   inside LinkedIn. Rosario is free under the OFL.
+   inside LinkedIn. Rosario is free under the OFL; its license ships as OFL-Rosario.txt.
 
    Declared here rather than in notice.js because @font-face must live in the
    document to load — it still applies inside the shadow root. */
