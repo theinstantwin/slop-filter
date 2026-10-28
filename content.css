@@ -88,4 +88,7 @@
   color: rgba(0,0,0,.6);
 }
 
+/* The post the reader just muted shows the notice's own "muted" card instead. */
+[data-sf-muted-card="true"]::after { content: none; }
+
 [data-sf-promoted="true"], [data-sf-boosted="true"] { display: none !important; }

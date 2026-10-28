@@ -67,21 +67,37 @@ const CSS = `
    no exit animation — the node is destroyed — which reads as a quick close. */
 @keyframes sf-unfold { from { grid-template-rows:0fr; } to { grid-template-rows:1fr; } }
 @keyframes sf-settle { from { opacity:0; transform:translateY(-4px); } }
+/* The hairline spans the notice's full width: the negative margins cancel the
+   bar's 16px side padding, and the basis adds it back so the row still fits. */
 .detail {
-  flex-basis:100%; width:100%; cursor:auto;
+  flex-basis:calc(100% + 32px); margin:9px -16px 0; cursor:auto;
+  border-top:1px solid rgba(176,40,26,.18);
   display:grid; grid-template-rows:1fr;
   animation:sf-unfold .22s cubic-bezier(.25,.7,.3,1);
 }
 .detail > .inner { overflow:hidden; min-height:0; }
 .why {
-  margin:4px 0 2px 30px; font-size:13.5px; line-height:1.55;
+  padding:10px 16px 3px 30px; font-size:13.5px; line-height:1.5;
   color:rgba(0,0,0,.78); animation:sf-settle .2s ease .07s backwards;
 }
-.why ul { margin:0; padding-left:16px; }
+.why ul { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; }
+.why li { display:flex; align-items:center; gap:10px; }
+/* The text is the list item so its marker is a real red disc; the row stays a
+   flex line so "Change in Settings" can sit at the right edge. */
+.why .tx { flex:1; display:list-item; list-style:disc; margin-left:16px; }
+.why .tx::marker { color:#B0281A; }
+.why .dim { color:rgba(0,0,0,.5); }
 .q {
   font-family:"SF Mono",ui-monospace,Menlo,monospace;
   font-size:12.5px; color:#B0281A;
 }
+.chg {
+  flex:none; background:none; border:0; padding:2px 0; cursor:pointer;
+  font:inherit; font-size:12px; color:rgba(0,0,0,.5); white-space:nowrap;
+}
+.chg u { text-decoration:underline; text-underline-offset:2px; }
+.chg:hover, .chg:focus-visible { color:#0A66C2; }
+.chg:focus-visible { outline:2px solid #0854A0; outline-offset:2px; border-radius:2px; }
 
 /* Popovers. The anchor wraps trigger + card so moving the pointer from one to
    the other never leaves the anchor (no hover gap, no timers). */
@@ -150,7 +166,7 @@ const PIG_BADGE =
 
 /* setThreshold clamps at this ceiling, so the stepper's + stops here. */
 const LIMIT_CEILING = 15;
-const LIMIT_FLOOR = 1;
+const LIMIT_FLOOR = 2;
 
 const cap = (w) => (w ? w[0].toUpperCase() + w.slice(1) : '');
 
@@ -175,11 +191,12 @@ function card(title) {
 
 /**
  * The notice: a bar (pig, wordmark, author, chips, toggle) and, when opened,
- * a plain list of reasons. Everything adjustable lives in hover popovers on
- * the pig and the chips.
+ * a bulleted list of reasons, each with a "Change in Settings" link. The
+ * pig and counting chips carry hover popovers; phrase chips are plain labels.
  *
- * onAction(action, payload): 'toggle', 'mute' (author), 'allow' (phrase),
- * 'setLimit' ({filterId, n}), 'openSettings', 'dismissHint'.
+ * onAction(action, payload): 'toggle', 'mute' (author),
+ * 'setLimit' ({filterId, n}), 'openSettings' ({panel} or {cat, phrase?}),
+ * 'dismissHint'.
  *
  * openKey/openFocus reopen a popover after the host rebuilds the notice (the
  * stepper changes settings, which re-judges the feed).
@@ -258,7 +275,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
     d.append('Hide every post. Can be undone in ');
     const set = linkBtn('Settings', 'inline');
     set.dataset.settings = 'true';
-    set.addEventListener('click', () => onAction('openSettings'));
+    set.addEventListener('click', () => onAction('openSettings', { panel: 'muted' }));
     d.append(set, '.');
     c.appendChild(d);
     const mute = linkBtn(`Mute ${author}`);
@@ -286,21 +303,15 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   for (const m of matches) {
     if (seen.has(m.filterName)) continue;
     seen.add(m.filterName);
-    const same = matches.filter(x => x.filterName === m.filterName);
     const chip = el('span', 'chip', m.filterName);
     chip.dataset.chip = m.filterName;
-    let c;
-    let label;
     if (m.counting) {
-      const n = el('span', 'n', String(m.count));
-      chip.appendChild(n);
-      c = buildLimitCard(m, onAction);
-      label = `${m.filterName}, ${m.count}. Adjust limit`;
+      chip.appendChild(el('span', 'n', String(m.count)));
+      chips.appendChild(makeAnchor(m.filterName, chip, buildLimitCard(m, onAction),
+        `${m.filterName}, ${m.count}. Adjust limit`, false));
     } else {
-      c = buildPhraseCard(m.filterName, same, onAction, () => anchors.forEach(close));
-      label = `${m.filterName}. Phrase options`;
+      chips.appendChild(chip); // plain label: phrases are changed in Settings
     }
-    chips.appendChild(makeAnchor(m.filterName, chip, c, label, false));
   }
   wrap.appendChild(chips);
 
@@ -333,15 +344,29 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
     const inner = el('div', 'inner');
     const why = el('div', 'why');
     const ul = document.createElement('ul');
+    const done = new Set();
     for (const m of matches) {
+      const key = m.counting ? m.filterId : `${m.filterId}|${m.rule || m.phrase}`;
+      if (done.has(key)) continue;
+      done.add(key);
       const li = document.createElement('li');
       li.dataset.reason = m.counting ? 'count' : 'phrase';
+      const tx = el('span', 'tx');
       if (m.counting) {
-        li.textContent = `${cap(m.unit)}: ${m.count} (you flag at ${m.limit})`;
+        tx.append(`${cap(m.unit)}: ${m.limit} or more `, el('span', 'dim', `(this post has ${m.count})`));
       } else {
-        li.append('Phrase: ');
-        li.appendChild(el('span', 'q', `“${m.phrase}”`));
+        tx.append('Phrase: ', el('span', 'q', `“${m.phrase}”`));
       }
+      const chg = el('button', 'chg', 'Change in ');
+      chg.type = 'button';
+      chg.dataset.change = 'true';
+      chg.appendChild(el('u', '', 'Settings'));
+      chg.setAttribute('aria-label', m.counting
+        ? `Change ${m.filterName} in Settings`
+        : `Change “${m.phrase}” in Settings`);
+      chg.addEventListener('click', () => onAction('openSettings',
+        m.counting ? { cat: m.filterId } : { cat: m.filterId, phrase: m.rule || m.phrase }));
+      li.append(tx, chg);
       ul.appendChild(li);
     }
     why.appendChild(ul);
@@ -414,20 +439,43 @@ function buildLimitCard(m, onAction) {
   return c;
 }
 
-function buildPhraseCard(name, same, onAction, closeAll) {
-  const c = card(name);
-  const phrases = [...new Set(same.map(x => x.phrase))];
-  phrases.forEach((phrase, i) => {
-    const ph = el('div', 'ph');
-    ph.appendChild(el('span', 'q', `“${phrase}”`));
-    c.appendChild(ph);
-    const stop = linkBtn('Stop flagging this phrase');
-    stop.dataset.allow = phrase;
-    stop.addEventListener('click', () => { onAction('allow', phrase); closeAll(); });
-    c.appendChild(stop);
-    if (i < phrases.length - 1) stop.style.marginBottom = '6px';
-  });
-  return c;
+/**
+ * Replaces a notice after the reader mutes its author: a quiet card with Undo.
+ * onAction('undoMute', author).
+ */
+const MUTED_CSS = `
+:host { display:block; }
+.card {
+  display:flex; align-items:center; gap:10px;
+  background:#fff; border:1px solid #E0DFDC; border-radius:8px; padding:12px 16px;
+  font-family:Geist,-apple-system,system-ui,sans-serif; font-size:13px;
+  line-height:1.45; color:rgba(0,0,0,.7);
+}
+.undo {
+  margin-left:auto; flex:none; background:none; border:0; padding:4px 6px;
+  border-radius:4px; font:inherit; font-weight:600; color:#0854A0; cursor:pointer;
+}
+.undo:hover { background:rgba(0,0,0,.06); }
+.undo:focus-visible { outline:2px solid #0854A0; outline-offset:2px; }
+`;
+
+function buildMutedCard({ author, onAction = () => {} }) {
+  const host = document.createElement('div');
+  host.dataset.sfNotice = 'true';
+  host.dataset.sfMutedCard = 'true';
+  const root = host.attachShadow({ mode: 'open' });
+  const style = document.createElement('style');
+  style.textContent = MUTED_CSS;
+  const c = el('div', 'card');
+  c.setAttribute('role', 'status');
+  c.appendChild(el('span', 'msg', `${author} is muted. Their posts won’t appear.`));
+  const undo = el('button', 'undo', 'Undo');
+  undo.type = 'button';
+  undo.dataset.undo = 'true';
+  undo.addEventListener('click', () => onAction('undoMute', author));
+  c.appendChild(undo);
+  root.append(style, c);
+  return host;
 }
 
-if (typeof module !== 'undefined') module.exports = { buildNotice, CSS };
+if (typeof module !== 'undefined') module.exports = { buildNotice, buildMutedCard, CSS };

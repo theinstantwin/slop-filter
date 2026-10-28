@@ -32,9 +32,9 @@ const sf = (typeof module !== 'undefined' && typeof require !== 'undefined')
       isPromoted, isBoosted,
       findMatches,
       load, save, migrate, STORAGE_KEY,
-      mute, allowPhrase, unallowPhrase, setCategoryOn, setThreshold,
+      mute, unmute, setCategoryOn, setThreshold,
       ...sc,
-      buildNotice,
+      buildNotice, buildMutedCard,
     };
 
 let settings = null;
@@ -128,7 +128,7 @@ function countOnce(post, record) {
 // sfCaught/sfCounted (counters never count a post twice) and sfRevealed
 // (the reader's own choice).
 const VERDICT_KEYS = ['sfProcessed', 'sfFlagged', 'sfFilters', 'sfCollapsed',
-  'sfMuted', 'sfPromoted', 'sfBoosted'];
+  'sfMuted', 'sfMutedCard', 'sfPromoted', 'sfBoosted'];
 
 /**
  * Re-judge every post already on the page against new settings, in place.
@@ -177,26 +177,43 @@ function renderNotice(post, matches, author, collapsed) {
   if (mine) { notice.sfRestore?.(); reopen = null; }
 }
 
-// One mute path, used by the pig popover's Mute link.
-async function muteAuthor(author) {
+// One mute path, used by the pig popover's Mute link. The post the reader
+// muted from swaps its notice for a quiet card with Undo; the author's other
+// posts hide as before.
+async function muteAuthor(author, post) {
   settings = sf.mute(settings, author);
-  await sf.save(settings);
+  const saving = sf.save(settings);
   for (const p of sf.getPosts()) {
     if (sf.getAuthor(p) === author) p.dataset.sfMuted = 'true';
   }
+  if (post) {
+    post.querySelector('[data-sf-notice]')?.remove();
+    post.dataset.sfMutedCard = 'true';
+    post.insertBefore(sf.buildMutedCard({
+      author,
+      onAction: (action, who) => { if (action === 'undoMute') undoMute(who); },
+    }), post.firstChild);
+  }
+  await saving;
+}
+
+// Undo = unmute and re-judge, which also clears the card and every sfMuted mark.
+function undoMute(author) {
+  applySettings(sf.unmute(settings, author));
+  sf.save(settings);
 }
 
 /**
  * The notice's only channel back into state.
  *
- * toggle: Show post <-> Hide post. mute: the pig popover. allow: "Stop
- * flagging this phrase". setLimit: the counting chip's stepper, which saves
+ * toggle: Show post <-> Hide post. mute: the pig popover. setLimit: the counting chip's stepper, which saves
  * at once and re-judges the page so a post that no longer qualifies un-flags.
- * openSettings: the pig popover's Settings link. dismissHint: the one-time tip.
+ * openSettings: "Change in Settings" ({cat, phrase?}) or the pig popover's
+ * Settings link ({panel}), forwarded to the background worker. dismissHint: the one-time tip.
  */
 function onNoticeAction(post, action, payload, matches, author) {
   if (action === 'mute') {
-    muteAuthor(payload);
+    muteAuthor(payload, post);
     return;
   }
 
@@ -223,13 +240,6 @@ function onNoticeAction(post, action, payload, matches, author) {
     return;
   }
 
-  if (action === 'allow') {
-    // Apply first: the save's onChanged echo then matches and is skipped.
-    applySettings(sf.allowPhrase(settings, payload));
-    sf.save(settings);
-    return;
-  }
-
   if (action === 'setLimit') {
     reopen = { post, key: matches.find(m => m.filterId === payload.filterId)?.filterName, focus: payload.focus };
     applySettings(sf.setThreshold(settings, payload.filterId, payload.n));
@@ -239,7 +249,7 @@ function onNoticeAction(post, action, payload, matches, author) {
   }
 
   if (action === 'openSettings') {
-    if (typeof chrome !== 'undefined') chrome.runtime?.sendMessage?.({ type: 'sf-open-settings', panel: 'muted' });
+    if (typeof chrome !== 'undefined') chrome.runtime?.sendMessage?.({ type: 'sf-open-settings', ...payload });
     return;
   }
 
@@ -280,8 +290,7 @@ async function init() {
 /**
  * Settings changed somewhere: the popover, the settings page, a restore, or a
  * notice in another LinkedIn tab. This tab's own saves come back through here
- * too and are skipped, so allowing a phrase doesn't rebuild the receipt the
- * reader is clicking in.
+ * too and are skipped, so a stepper click doesn't rebuild the notice twice.
  */
 function onStorageChanged(changes, area) {
   if (area !== 'local' || !changes[sf.STORAGE_KEY]) return;

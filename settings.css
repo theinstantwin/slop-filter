@@ -328,6 +328,19 @@ input[type=text].name-inline {
 }
 .rule.locked:hover { border-color: var(--border-strong); }
 .rule .lock { flex: none; width: 10px; height: 10px; color: var(--text-3); opacity: .7; }
+.rule-label { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; min-width: 0; }
+.rule-label input { margin: 0; width: 14px; height: 14px; accent-color: var(--accent); flex: none; }
+.rule-label input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Unchecked: kept, not flagging. Dashed and grey, like the ghost chip. */
+.rule.u { border: 1px dashed var(--border-strong); background: none; color: var(--text-3); }
+.rule.u:hover { border-color: var(--text-3); }
+/* Deep-link landing (notice's "Change in Settings"). */
+@keyframes sf-hl { from { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent); } to { box-shadow: 0 0 0 4px transparent; } }
+.hl { animation: sf-hl 2.2s ease-out; border-radius: 8px; }
+.rule.hl { border-radius: 999px; }
+@media (prefers-reduced-motion: reduce) {
+  .hl { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent); }
+}
 .rule-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rule .fill { font-style: italic; color: var(--text-3); }
 .rule-x {

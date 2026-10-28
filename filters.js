@@ -186,7 +186,10 @@ function findMatches(text, opts = {}) {
         continue;
       }
 
+      // `off` lists rules the reader unchecked in Settings: kept, not flagging.
+      const off = Array.isArray(cat.off) ? cat.off.map(r => String(r).toLowerCase()) : [];
       for (const rule of cat.rules || []) {
+        if (off.includes(rule.toLowerCase())) continue;
         const pattern = compile(rule);
         pattern.lastIndex = 0;
         let hit;
@@ -197,6 +200,7 @@ function findMatches(text, opts = {}) {
               filterId: cat.id,
               filterName: cat.name,
               phrase,
+              rule,
               index: hit.index,
             });
           }

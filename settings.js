@@ -19,7 +19,7 @@
 const st = (typeof module !== 'undefined' && typeof require !== 'undefined')
   ? { ...require('./filters.js'), ...require('./storage.js'), ...require('./counters.js') }
   : { ...{ findMatches, BLANK, compile, SEED_CATEGORIES, COUNTERS },
-      ...{ STORAGE_KEY, DEFAULTS, migrate, upgradeToV2, allowPhrase, unallowPhrase, mute, unmute,
+      ...{ STORAGE_KEY, DEFAULTS, migrate, upgradeToV2, setRuleOn, mute, unmute,
            allowAuthor, unallowAuthor,
            setCategoryOn, setCategoryDef, setThreshold, addRule, removeRule, upsertCustomCategory,
            deleteCategory, setHidePromoted, setHideBoosted, load, save },
@@ -36,14 +36,70 @@ function wirePanelSwitching(doc) {
   });
 }
 
-/* settings.html#muted opens that panel (the notice's pig popover links here). */
-function openPanelFromHash(doc, hash) {
-  const id = String(hash || '').replace(/^#/, '');
-  if (!id) return false;
+/* Deep links. The notice's "Change in Settings" and pig link open
+     settings.html#panel=muted
+     settings.html#cat=<categoryId>[&phrase=<rule text>]
+   (a bare #muted still works). On load AND on hashchange this switches panel,
+   expands the category, scrolls it into view and briefly highlights the exact
+   phrase chip, or the threshold control for a counting category. */
+function parseSettingsHash(hash) {
+  const raw = String(hash || '').replace(/^#/, '');
+  if (!raw) return {};
+  if (!raw.includes('=')) return { panel: raw };
+  const p = new URLSearchParams(raw);
+  const out = {};
+  if (p.get('panel')) out.panel = p.get('panel');
+  if (p.get('cat')) out.cat = p.get('cat');
+  if (p.get('phrase')) out.phrase = p.get('phrase');
+  return out;
+}
+
+function showPanel(doc, id) {
   const btn = [...doc.querySelectorAll('.navitem')].find(b => b.dataset.panel === id);
   if (!btn) return false;
   btn.click();
   return true;
+}
+
+function reducedMotion(doc) {
+  return !!doc.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
+function highlight(doc, node) {
+  if (!node) return;
+  node.classList.add('hl');
+  node.scrollIntoView?.({ block: 'center', behavior: reducedMotion(doc) ? 'auto' : 'smooth' });
+  const t = setTimeout(() => node.classList.remove('hl'), 2200);
+  t.unref?.(); // Node tests only; browsers return a number
+}
+
+function applyHash(doc, hash) {
+  const h = parseSettingsHash(hash);
+  if (h.panel) return showPanel(doc, h.panel);
+  if (!h.cat) return false;
+  const cat = st.settings?.categories.find(c => c.id === h.cat);
+  if (!cat) return false;
+  if (cat.labs) return showPanel(doc, 'labs');
+  showPanel(doc, 'categories');
+  st.catOpen.add(cat.id);
+  renderCats(doc);
+  const node = doc.querySelector('[data-cat="' + cat.id + '"]');
+  if (!node) return false;
+  let target = node;
+  if (cat.counting) target = node.querySelector('.thr') || node;
+  else if (h.phrase) {
+    const want = h.phrase.toLowerCase();
+    target = [...node.querySelectorAll('.rule[data-rule]')]
+      .find(r => r.dataset.rule.toLowerCase() === want) || node;
+  }
+  highlight(doc, target);
+  return true;
+}
+
+/* kept for the bare "#muted" form and older callers */
+function openPanelFromHash(doc, hash) {
+  const id = String(hash || '').replace(/^#/, '');
+  return id ? showPanel(doc, id) : false;
 }
 
 let savedTimer;
@@ -420,9 +476,25 @@ function renderCat(doc, cat, { draft = false } = {}) {
 
 function renderRule(doc, cat, txt) {
   const shape = txt.includes(st.BLANK);
-  const r = el('div', 'rule' + (shape ? ' locked' : ''));
+  const isOff = (cat.off || []).includes(txt);
+  const r = el('div', 'rule' + (shape ? ' locked' : '') + (isOff ? ' u' : ''));
+  r.dataset.rule = txt;
 
-  const label = el('div', 'rule-text');
+  // The label wraps the checkbox, so clicking the phrase toggles it. Checked
+  // means flagging; unchecked keeps the phrase but stops it firing.
+  const lab = el('label', 'rule-label');
+  const cb = doc.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = !isOff;
+  cb.addEventListener('change', async () => {
+    st.settings = st.setRuleOn(st.settings, cat.id, txt, cb.checked);
+    r.classList.toggle('u', !cb.checked);
+    await st.persist();
+    runTry(doc);
+  });
+  lab.appendChild(cb);
+
+  const label = el('span', 'rule-text');
   if (shape) {
     // render blanks as visible placeholders so the template reads as a sentence
     txt.split(st.BLANK).forEach((part, i) => {
@@ -432,7 +504,8 @@ function renderRule(doc, cat, txt) {
   } else {
     label.textContent = txt;
   }
-  r.appendChild(label);
+  lab.appendChild(label);
+  r.appendChild(lab);
 
   if (shape) {
     r.title = 'Built-in sentence template — the blanks match anything. Cannot be edited.';
@@ -1288,6 +1361,16 @@ function showRestorePreview(doc, data, kind, filename) {
 
 function renderBackup() {}
 
+/* Settings changed somewhere else (a LinkedIn tab's notice). */
+function onSettingsChanged(changes, area, doc = document) {
+  if (area !== 'local' || !changes[st.STORAGE_KEY]) return;
+  const next = changes[st.STORAGE_KEY].newValue;
+  if (!next || JSON.stringify(next) === JSON.stringify(st.settings)) return;
+  st.settings = st.migrate(next);
+  renderAll(doc);
+  runTry(doc);
+}
+
 function renderAll(doc) {
   renderCats(doc);
   renderMutes(doc);
@@ -1301,7 +1384,7 @@ function renderAll(doc) {
 if (typeof module !== 'undefined') {
   module.exports = {
     st,
-    wirePanelSwitching, openPanelFromHash, flashSaved, renderAll,
+    wirePanelSwitching, openPanelFromHash, parseSettingsHash, applyHash, onSettingsChanged, flashSaved, renderAll,
     renderCats, renderCat, renderRule, wireCategoriesPanel, runTry,
     renderPromoted, wirePromotedPanel, renderLabs, wireLabsPanel, renderMutes, renderMute,
     renderTrusted, renderTrustedRow, wireTrustedAdd,
@@ -1315,9 +1398,9 @@ if (typeof chrome !== 'undefined' && chrome.storage) {
   (async () => {
     st.settings = await st.load();
 
-    // Read once on page load — no chrome.storage.onChanged listener (PRD): a
-    // settings page left open showing numbers from when it was opened is
-    // fine, and refreshing is the obvious gesture for wanting current ones.
+    // Activity counters are read once on page load: a page left open showing
+    // numbers from when it was opened is fine. The settings blob itself is
+    // kept live by onSettingsChanged below.
     st.counters = await st.readAll();
     const metaBlob = await chrome.storage.local.get(['sfMeta']);
     st.meta = metaBlob.sfMeta || {};
@@ -1330,7 +1413,6 @@ if (typeof chrome !== 'undefined' && chrome.storage) {
     };
 
     wirePanelSwitching(document);
-    openPanelFromHash(document, location.hash);
 
     const verEl = document.getElementById('ver');
     if (verEl && chrome.runtime && chrome.runtime.getManifest) {
@@ -1344,5 +1426,14 @@ if (typeof chrome !== 'undefined' && chrome.storage) {
     wireTrustedAdd(document);
     wireShareCard(document);
     wireBackupPanel(document);
+
+    // Deep links need the panels rendered first.
+    applyHash(document, location.hash);
+    window.addEventListener('hashchange', () => applyHash(document, location.hash));
+
+    // The feed edits settings too (stepper, mute, Undo). Pick those up so this
+    // page never shows or saves a stale copy. Our own saves echo back equal
+    // and are skipped.
+    chrome.storage.onChanged?.addListener(onSettingsChanged);
   })();
 }

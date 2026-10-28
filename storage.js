@@ -5,6 +5,15 @@
  * them under `doucheFilterSettings`; load() moves them to the new key once
  * and deletes the old one, so no one loses their muted-author list.
  *
+ * Phrase on/off lives on the rule's own category: `cat.off` is an optional
+ * array of rule strings (exact, as they appear in `cat.rules`) that are kept
+ * but do not flag. A rule is enabled unless it is listed in `off`, so `rules`
+ * stays a plain string array and every existing reader keeps working.
+ * filters.js findMatches skips rules listed in `off`; Settings shows each as a
+ * checkbox. The old global `allowedPhrases` list is still honoured by
+ * findMatches, but only holds entries migration could not map to a rule (see
+ * liftAllowedPhrases).
+ *
  * Schema 2 moves categories INTO the blob (filters.js's SEED_CATEGORIES is
  * only ever the seed — every read after first install goes through the
  * stored categories array, never back through the seed). Every migration
@@ -114,6 +123,34 @@ function migrateLegacy(stored) {
 }
 
 /**
+ * "Stop flagging this phrase" used to push the matched text onto a global
+ * allowedPhrases list. Phrase on/off now lives on the rule (`cat.off`), so
+ * every allowed entry that equals a plain rule in a category (case-insensitive)
+ * turns that rule off in each category that has it, and leaves the list.
+ * Entries that match no plain rule stay in allowedPhrases and keep working:
+ * text caught by a ___ sentence template or a Labs pattern has no checkbox to
+ * move to. Mutates `categories` (already copies); returns the leftover list.
+ */
+function liftAllowedPhrases(categories, allowed) {
+  const left = [];
+  for (const entry of allowed) {
+    const p = String(entry).toLowerCase().trim();
+    let hit = false;
+    for (const cat of categories) {
+      if (cat.counting || cat.labs || !Array.isArray(cat.rules)) continue;
+      for (const rule of cat.rules) {
+        if (rule.includes(_BLANK) || rule.toLowerCase() !== p) continue;
+        hit = true;
+        cat.off = cat.off || [];
+        if (!cat.off.includes(rule)) cat.off.push(rule);
+      }
+    }
+    if (!hit) left.push(entry);
+  }
+  return left;
+}
+
+/**
  * Stage 2: lift a (post-stage-1) legacy blob, or an existing schema-2 blob,
  * onto schema 2. Append-only by id: a seed category NEVER overwrites an
  * on/off flag or rule list the blob already has — it only fills in
@@ -153,7 +190,10 @@ function upgradeToV2(stored, SEED = _SEED) {
         const seed = SEED.find(s => s.id === c.id);
         if (seed) return { ...c, name: seed.name, def: seed.def };
       }
-      return { ...c, rules: c.rules ? [...c.rules] : undefined };
+      const copy = { ...c, rules: c.rules ? [...c.rules] : undefined };
+      if (Array.isArray(c.off)) copy.off = c.off.filter(r => typeof r === 'string');
+      else delete copy.off;
+      return copy;
     });
     const seenIds = new Set(categories.map(c => c.id));
     for (const seed of SEED) {
@@ -161,13 +201,17 @@ function upgradeToV2(stored, SEED = _SEED) {
     }
   }
 
+  const lifted = liftAllowedPhrases(
+    categories,
+    Array.isArray(stored.allowedPhrases) ? stored.allowedPhrases : []);
+
   return {
     schema: 2,
     flagMode: (stored.flagMode === 'label' || stored.flagMode === 'collapse') ? stored.flagMode : 'collapse',
     categories,
     hidePromoted: 'hidePromoted' in stored ? !!stored.hidePromoted : true,
     hideBoosted: 'hideBoosted' in stored ? !!stored.hideBoosted : false,
-    allowedPhrases: Array.isArray(stored.allowedPhrases) ? stored.allowedPhrases.slice() : [],
+    allowedPhrases: lifted,
     mutedAuthors: Array.isArray(stored.mutedAuthors) ? stored.mutedAuthors.slice() : [],
     whitelistedAuthors: Array.isArray(stored.whitelistedAuthors) ? stored.whitelistedAuthors.slice() : [],
     noticeHintSeen: stored.noticeHintSeen === true,
@@ -209,17 +253,14 @@ function nextCustomId(categories) {
   return `custom${n}`;
 }
 
-function allowPhrase(settings, phrase) {
-  const p = String(phrase).toLowerCase().trim();
+// Turn one rule on or off without deleting it. `off` is omitted when empty.
+function setRuleOn(settings, id, rule, on) {
   const next = clone(settings);
-  if (p && !next.allowedPhrases.includes(p)) next.allowedPhrases.push(p);
-  return next;
-}
-
-function unallowPhrase(settings, phrase) {
-  const p = String(phrase).toLowerCase().trim();
-  const next = clone(settings);
-  next.allowedPhrases = next.allowedPhrases.filter(x => x !== p);
+  const cat = next.categories.find(c => c.id === id);
+  if (!cat || !(cat.rules || []).includes(rule)) return next;
+  const off = (cat.off || []).filter(r => r !== rule);
+  if (!on) off.push(rule);
+  if (off.length) cat.off = off; else delete cat.off;
   return next;
 }
 
@@ -273,7 +314,7 @@ function setThreshold(settings, id, n) {
   const next = clone(settings);
   const cat = next.categories.find(c => c.id === id);
   const num = Number(n);
-  if (cat && Number.isFinite(num)) cat.threshold = Math.max(1, Math.min(15, num));
+  if (cat && Number.isFinite(num)) cat.threshold = Math.max(2, Math.min(15, num));
   return next;
 }
 
@@ -303,6 +344,10 @@ function removeRule(settings, id, text) {
   // helper refuses independently rather than relying on the UI never asking.
   if (cat && !String(text).includes(_BLANK)) {
     cat.rules = cat.rules.filter(r => r !== text);
+    if (cat.off) {
+      cat.off = cat.off.filter(r => r !== text);
+      if (!cat.off.length) delete cat.off;
+    }
   }
   return next;
 }
@@ -350,7 +395,7 @@ async function save(settings) {
 if (typeof module !== 'undefined') {
   module.exports = {
     STORAGE_KEY, DEFAULTS, migrate, upgradeToV2,
-    allowPhrase, unallowPhrase, mute, unmute,
+    setRuleOn, mute, unmute,
     allowAuthor, unallowAuthor,
     setHidePromoted, setHideBoosted,
     setCategoryOn, setThreshold, setCategoryDef, addRule, removeRule,
