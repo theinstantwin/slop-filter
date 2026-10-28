@@ -140,6 +140,7 @@ const SEED_CATEGORIES = [
     on: false, labs: true },
 ];
 
+/** @param {string} text @param {{ categories?: Category[], [k: string]: any }} [opts] */
 function findMatches(text, opts = {}) {
   const out = [];
   if (!text) return out;
@@ -212,6 +213,6 @@ function findMatches(text, opts = {}) {
   return out;
 }
 
-if (typeof module !== 'undefined') {
-  module.exports = { findMatches, BLANK, MAX_BLANKS, compile, SEED_CATEGORIES, COUNTERS, LABS_PATTERNS };
-}
+Object.assign(typeof module !== 'undefined' ? module.exports : (globalThis.SlopFilter ||= {}), {
+  findMatches, BLANK, MAX_BLANKS, compile, SEED_CATEGORIES, COUNTERS, LABS_PATTERNS,
+});

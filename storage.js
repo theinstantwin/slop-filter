@@ -10,34 +10,53 @@
  * but do not flag. A rule is enabled unless it is listed in `off`, so `rules`
  * stays a plain string array and every existing reader keeps working.
  * filters.js findMatches skips rules listed in `off`; Settings shows each as a
- * checkbox. The old global `allowedPhrases` list is still honoured by
- * findMatches, but only holds entries migration could not map to a rule (see
- * liftAllowedPhrases).
+ * checkbox. The old global `allowedPhrases` list is gone: migration lifts
+ * every entry it can map onto a rule and drops the rest (see
+ * liftAllowedPhrases), so the field always comes back as [].
+ *
+ * migrate() is the one place settings are made valid. Every path in (load,
+ * a restored backup, a storage change from another tab) goes through it, so
+ * readers never re-check types or clamp thresholds themselves.
  *
  * Schema 2 moves categories INTO the blob (filters.js's SEED_CATEGORIES is
  * only ever the seed — every read after first install goes through the
  * stored categories array, never back through the seed). Every migration
- * function takes SEED as a defaulted parameter rather than closing over a
- * module-level require: in the browser, storage.js loads as a plain
- * <script> AFTER filters.js in the same isolated-world scope (manifest.json,
- * popup.html), so `const SEED_CATEGORIES = ...` at filters.js's top level is
- * already a declared name in that shared scope by the time this file runs.
- * A bare `const { SEED_CATEGORIES } = require(...)` here would be a
- * SyntaxError in that scope ("already been declared") — the same failure
- * content.js's header documents for `SEED_CATEGORIES`. Under Node, where this file
- * is required standalone with no ambient SEED_CATEGORIES global, the guarded
- * require below supplies it.
+ * function takes SEED as a defaulted parameter so tests can inject one.
  */
-const _SEED = (typeof module !== 'undefined' && typeof require !== 'undefined')
-  ? require('./filters.js').SEED_CATEGORIES
-  : SEED_CATEGORIES;
+/**
+ * @typedef {object} Category
+ * @property {string} id
+ * @property {string} name
+ * @property {string} [def]
+ * @property {boolean} on
+ * @property {string[]} [rules]       phrases; absent on labs categories
+ * @property {string[]} [off]         rules switched off, omitted when empty
+ * @property {boolean} [counting]     fires on a count, not a phrase
+ * @property {number} [threshold]     counting categories only
+ * @property {string} [unit]          counting categories only, e.g. 'hashtags'
+ * @property {boolean} [labs]         hardcoded regex, see LABS_PATTERNS
+ * @property {boolean} [custom]
+ */
+/**
+ * @typedef {object} Settings
+ * @property {number} schema
+ * @property {'collapse' | 'label'} flagMode
+ * @property {Category[]} categories
+ * @property {boolean} hidePromoted
+ * @property {boolean} hideBoosted
+ * @property {string[]} allowedPhrases   always [] since schema 2
+ * @property {string[]} mutedAuthors
+ * @property {string[]} whitelistedAuthors
+ * @property {boolean} paused
+ * @property {boolean} noticeHintSeen
+ * @property {string[]} addedRules       "<catId>:<rule>" keys already applied
+ * @property {Record<string, boolean>} [filters]     pre-schema-2 only
+ * @property {Record<string, number>} [thresholds]   pre-schema-2 only
+ */
 
-// Same guarded-require pattern as _SEED above: BLANK is filters.js's template
-// marker, already a declared global in the browser's shared script scope by
-// the time this file runs, but not ambient under Node.
-const _BLANK = (typeof module !== 'undefined' && typeof require !== 'undefined')
-  ? require('./filters.js').BLANK
-  : BLANK;
+const _filters = typeof module !== 'undefined' ? module.require('./filters.js') : globalThis.SlopFilter;
+const _SEED = _filters.SEED_CATEGORIES;
+const _BLANK = _filters.BLANK;
 
 const STORAGE_KEY = 'slopFilterSettings';
 const LEGACY_KEY = 'doucheFilterSettings';
@@ -93,6 +112,18 @@ function buildDefaults(SEED) {
   };
 }
 
+// The range a counting filter's threshold may take. Below 2 a filter would
+// flag nearly every post; above 15 it could never fire.
+const THRESHOLD_MIN = 2;
+const THRESHOLD_MAX = 15;
+
+/** @param {unknown} n @param {number} [fallback] @returns {number} */
+function clampThreshold(n, fallback = THRESHOLD_MIN) {
+  const num = Number(n);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.max(THRESHOLD_MIN, Math.min(THRESHOLD_MAX, Math.round(num)));
+}
+
 const DEFAULTS = buildDefaults(_SEED);
 // Kept for migrating old blobs and for the "no drift from filters.js" check —
 // not part of the schema-2 shape itself.
@@ -136,27 +167,23 @@ function migrateLegacy(stored) {
  * allowedPhrases list. Phrase on/off now lives on the rule (`cat.off`), so
  * every allowed entry that equals a plain rule in a category (case-insensitive)
  * turns that rule off in each category that has it, and leaves the list.
- * Entries that match no plain rule stay in allowedPhrases and keep working:
- * text caught by a ___ sentence template or a Labs pattern has no checkbox to
- * move to. Mutates `categories` (already copies); returns the leftover list.
+ * Entries that match no plain rule are dropped: text caught by a ___ sentence
+ * template or a Labs pattern has no checkbox to move to, and a hidden
+ * suppression list the user can neither see nor undo is worse than letting
+ * the phrase flag again. Mutates `categories` (already normalized copies).
  */
 function liftAllowedPhrases(categories, allowed) {
-  const left = [];
   for (const entry of allowed) {
     const p = String(entry).toLowerCase().trim();
-    let hit = false;
     for (const cat of categories) {
       if (cat.counting || cat.labs || !Array.isArray(cat.rules)) continue;
       for (const rule of cat.rules) {
         if (rule.includes(_BLANK) || rule.toLowerCase() !== p) continue;
-        hit = true;
         cat.off = cat.off || [];
         if (!cat.off.includes(rule)) cat.off.push(rule);
       }
     }
-    if (!hit) left.push(entry);
   }
-  return left;
 }
 
 /**
@@ -172,6 +199,25 @@ const RETIRED_DEFS = {
   selfPromotion: ['Pitching a follow instead of standing on its own'],
 };
 
+const strings = a => (Array.isArray(a) ? a.filter(x => typeof x === 'string') : []);
+
+// One category in its valid shape, as a copy that shares nothing with the
+// input (later steps push into rules/off). Unknown fields ride along. Returns
+// null for something that cannot be a category at all.
+/** @param {any} c @param {Category[]} SEED @returns {Category | null} */
+function normalizeCategory(c, SEED) {
+  if (!c || typeof c !== 'object' || typeof c.id !== 'string') return null;
+  const out = { ...c, name: typeof c.name === 'string' ? c.name : c.id, on: !!c.on };
+  if (Array.isArray(c.rules)) out.rules = strings(c.rules); else delete out.rules;
+  if (Array.isArray(c.off)) out.off = strings(c.off); else delete out.off;
+  if (c.counting) {
+    const seed = SEED.find(s => s.id === c.id);
+    out.threshold = clampThreshold(c.threshold, seed && seed.threshold);
+  }
+  return out;
+}
+
+/** @param {any} stored @param {Category[]} [SEED] @returns {Settings} */
 function upgradeToV2(stored, SEED = _SEED) {
   const hasCategories = Array.isArray(stored.categories);
 
@@ -183,7 +229,7 @@ function upgradeToV2(stored, SEED = _SEED) {
     categories = seedCategories(SEED).map(cat => {
       const next = { ...cat };
       if (cat.id in filters) next.on = !!filters[cat.id];
-      if (cat.counting && cat.id in thresholds) next.threshold = thresholds[cat.id];
+      if (cat.counting && cat.id in thresholds) next.threshold = clampThreshold(thresholds[cat.id], cat.threshold);
       return next;
     });
   } else {
@@ -194,7 +240,7 @@ function upgradeToV2(stored, SEED = _SEED) {
     // adds no word boundary), and a blob saved before that move carries the
     // poisoned rules array forever unless repaired here. Re-seed the category
     // shape, keeping only the user's on/off choice.
-    categories = stored.categories.map(c => {
+    categories = stored.categories.map(c => normalizeCategory(c, SEED)).filter(Boolean).map(c => {
       if (c.id === 'sponsored' && Array.isArray(c.rules)) {
         const seed = SEED.find(s => s.id === 'sponsored');
         if (seed) return { ...seedCategories([seed])[0], on: !!c.on };
@@ -212,15 +258,12 @@ function upgradeToV2(stored, SEED = _SEED) {
       if (!c.custom) {
         const seed = SEED.find(s => s.id === c.id);
         if (seed) {
-          const next = { ...c, name: seed.name, rules: c.rules ? [...c.rules] : undefined };
+          const next = { ...c, name: seed.name };
           if (RETIRED_DEFS[c.id] && RETIRED_DEFS[c.id].includes(c.def)) next.def = seed.def;
           return next;
         }
       }
-      const copy = { ...c, rules: c.rules ? [...c.rules] : undefined };
-      if (Array.isArray(c.off)) copy.off = c.off.filter(r => typeof r === 'string');
-      else delete copy.off;
-      return copy;
+      return c;
     });
     const seenIds = new Set(categories.map(c => c.id));
     for (const seed of SEED) {
@@ -228,13 +271,10 @@ function upgradeToV2(stored, SEED = _SEED) {
     }
   }
 
-  const lifted = liftAllowedPhrases(
-    categories,
-    Array.isArray(stored.allowedPhrases) ? stored.allowedPhrases : []);
-
+  liftAllowedPhrases(categories, Array.isArray(stored.allowedPhrases) ? stored.allowedPhrases : []);
 
   // One-time additions of new built-in phrases (see ADDED_RULES).
-  const addedRules = Array.isArray(stored.addedRules) ? stored.addedRules.slice() : [];
+  const addedRules = strings(stored.addedRules);
   for (const [catId, rules] of Object.entries(ADDED_RULES)) {
     const cat = categories.find(c => c.id === catId);
     for (const rule of rules) {
@@ -251,15 +291,16 @@ function upgradeToV2(stored, SEED = _SEED) {
     categories,
     hidePromoted: 'hidePromoted' in stored ? !!stored.hidePromoted : true,
     hideBoosted: 'hideBoosted' in stored ? !!stored.hideBoosted : false,
-    allowedPhrases: lifted,
-    mutedAuthors: Array.isArray(stored.mutedAuthors) ? stored.mutedAuthors.slice() : [],
-    whitelistedAuthors: Array.isArray(stored.whitelistedAuthors) ? stored.whitelistedAuthors.slice() : [],
+    allowedPhrases: [],
+    mutedAuthors: strings(stored.mutedAuthors),
+    whitelistedAuthors: strings(stored.whitelistedAuthors),
     paused: stored.paused === true,
     noticeHintSeen: stored.noticeHintSeen === true,
     addedRules,
   };
 }
 
+/** @param {any} [stored] @param {Category[]} [SEED] @returns {Settings} */
 function migrate(stored = {}, SEED = _SEED) {
   if (!stored || typeof stored !== 'object') return upgradeToV2({}, SEED);
   if (Array.isArray(stored.categories)) return upgradeToV2(stored, SEED);
@@ -306,12 +347,14 @@ function setRuleOn(settings, id, rule, on) {
   return next;
 }
 
+/** @param {Settings} settings @param {string} author @returns {Settings} */
 function mute(settings, author) {
   const next = clone(settings);
   if (author && !next.mutedAuthors.includes(author)) next.mutedAuthors.push(author);
   return next;
 }
 
+/** @param {Settings} settings @param {string} author @returns {Settings} */
 function unmute(settings, author) {
   const next = clone(settings);
   next.mutedAuthors = next.mutedAuthors.filter(a => a !== author);
@@ -352,11 +395,12 @@ function setCategoryOn(settings, id, on) {
   return next;
 }
 
+/** @param {Settings} settings @param {string} id @param {unknown} n @returns {Settings} */
 function setThreshold(settings, id, n) {
   const next = clone(settings);
   const cat = next.categories.find(c => c.id === id);
   const num = Number(n);
-  if (cat && Number.isFinite(num)) cat.threshold = Math.max(2, Math.min(15, num));
+  if (cat && Number.isFinite(num)) cat.threshold = clampThreshold(num);
   return next;
 }
 
@@ -434,14 +478,12 @@ async function save(settings) {
   await chrome.storage.local.set({ [STORAGE_KEY]: settings });
 }
 
-if (typeof module !== 'undefined') {
-  module.exports = {
-    STORAGE_KEY, DEFAULTS, migrate, upgradeToV2,
+Object.assign(typeof module !== 'undefined' ? module.exports : (globalThis.SlopFilter ||= {}), {
+    STORAGE_KEY, DEFAULTS, THRESHOLD_MIN, THRESHOLD_MAX, clampThreshold, migrate, upgradeToV2,
     setRuleOn, mute, unmute,
     allowAuthor, unallowAuthor,
     setHidePromoted, setHideBoosted,
     setCategoryOn, setThreshold, setCategoryDef, addRule, removeRule,
     upsertCustomCategory, deleteCategory,
     load, save,
-  };
-}
+});

@@ -2,40 +2,20 @@
  * Orchestration. Holds no knowledge of LinkedIn's markup — that lives in
  * dom.js — and no rendering logic — that lives in notice.js.
  *
- * Loading model: under the extension these are plain content scripts sharing
- * ONE isolated-world scope, loaded in manifest order, so dom/filters/storage/
- * notice have already declared their top-level names by the time this
- * file runs. Under Node they are required instead.
- *
- * This file must therefore not declare ANY top-level identifier that an
- * earlier script already declares. Importing them under their own names —
- * `var { SEED_CATEGORIES } = require(...)` — is a SyntaxError in the browser
- * ("Identifier 'SEED_CATEGORIES' has already been declared") because `var` is hoisted
- * and declared at parse time whether or not its `if` branch ever runs, and a
- * `var` cannot shadow filters.js's `const SEED_CATEGORIES` in the same scope. That
- * error kills the entire content-script bundle silently.
- *
- * So: one uniquely-named binding, resolved per environment. `sf` collides with
- * nothing in dom/filters/storage/notice.
+ * Under the extension the library scripts share one scope and publish their
+ * API on globalThis.SlopFilter; under Node they are required instead. `sf` is
+ * the only top-level name this file adds for them.
  */
 
-const sf = (typeof module !== 'undefined' && typeof require !== 'undefined')
+const sf = typeof module !== 'undefined'
   ? {
-      ...require('./dom.js'),
-      ...require('./filters.js'),
-      ...require('./storage.js'),
-      ...require('./counters.js'),
-      ...require('./notice.js'),
+      ...module.require('./dom.js'),
+      ...module.require('./filters.js'),
+      ...module.require('./storage.js'),
+      ...module.require('./counters.js'),
+      ...module.require('./notice.js'),
     }
-  : {
-      SEL, getPosts, getAuthor, getPostText, whenFeedReady,
-      isPromoted, isBoosted,
-      findMatches,
-      load, save, migrate, STORAGE_KEY,
-      mute, unmute, setCategoryOn, setThreshold,
-      ...sc,
-      buildNotice, buildMutedCard,
-    };
+  : globalThis.SlopFilter;
 
 let settings = null;
 
@@ -101,7 +81,6 @@ function processPost(post, current) {
   const text = sf.getPostText(post);
   const matches = sf.findMatches(text, {
     categories: current.categories,
-    allowed: current.allowedPhrases,
   });
   if (!matches.length) return false;
 
@@ -151,7 +130,8 @@ function applySettings(next) {
 }
 
 // The one-time tip lives on a single notice: the first one rendered. Rebuilds
-// of that same post keep it; a post that left the page hands it on.
+// of that same post keep it; a post that left the page or is no longer
+// flagged hands it on.
 let hintPost = null;
 // Set by the limit stepper so the rebuild that follows reopens its popover.
 let reopen = null;
@@ -163,7 +143,7 @@ function renderNotice(post, matches, author, collapsed) {
   post.querySelector('[data-sf-notice]')?.remove();
   let showHint = false;
   if (settings && !settings.noticeHintSeen && author) {
-    if (!hintPost || hintPost === post || !hintPost.isConnected) {
+    if (!hintPost || hintPost === post || !hintPost.isConnected || hintPost.dataset.sfFlagged !== 'true') {
       hintPost = post;
       showHint = true;
     }
@@ -193,7 +173,12 @@ async function muteAuthor(author, post) {
   settings = sf.mute(settings, author);
   const saving = sf.save(settings);
   for (const p of sf.getPosts()) {
-    if (sf.getAuthor(p) === author) p.dataset.sfMuted = 'true';
+    if (sf.getAuthor(p) !== author) continue;
+    p.dataset.sfMuted = 'true';
+    if (p === post) continue;
+    // The same state processPost gives a muted author: no notice, not flagged.
+    p.querySelector('[data-sf-notice]')?.remove();
+    for (const k of ['sfFlagged', 'sfFilters', 'sfCollapsed']) delete p.dataset[k];
   }
   if (post) {
     post.querySelector('[data-sf-notice]')?.remove();
@@ -258,7 +243,11 @@ function onNoticeAction(post, action, payload, matches, author) {
   }
 
   if (action === 'openSettings') {
-    if (typeof chrome !== 'undefined') chrome.runtime?.sendMessage?.({ type: 'sf-open-settings', ...payload });
+    // A tab left open across an extension update has lost its connection to
+    // the worker; sendMessage then throws, or rejects. Fail quietly.
+    try {
+      chrome.runtime?.sendMessage?.({ type: 'sf-open-settings', ...payload })?.catch?.(() => {});
+    } catch (e) { /* extension context invalidated */ }
     return;
   }
 
@@ -314,7 +303,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { processPost, onNoticeAction, renderNotice,
+  Object.assign(module.exports, { processPost, onNoticeAction, renderNotice,
     applySettings, onStorageChanged,
-    resetNoticeState: () => { hintPost = null; reopen = null; } };
+    resetNoticeState: () => { hintPost = null; reopen = null; } });
 }

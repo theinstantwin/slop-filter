@@ -1,25 +1,15 @@
 /**
- * Popover script. In the browser, popup.html loads filters.js and
- * storage.js as plain scripts before this one, so `findMatches`, `load`,
- * `save`, `unmute` are already globals in that shared page scope. Under
- * `node --test`, this file is required directly with no such scope.
- *
- * Matching content.js's `sf` pattern: every identifier this file consumes
- * from another module is resolved once into a single namespaced object,
- * never called as a bare global. That is what keeps popup.js safe if a
- * future edit adds its own top-level `save` or `load` helper — a bare
- * `function save(...)` here would otherwise silently shadow storage.js's
- * `save`, or (with `const`/`let`) throw a parse-time redeclaration error
- * that kills the whole popup with no test to catch it, since popup.js is
- * not part of the content-script bundle test/bundle.test.js guards.
+ * Popover script. popup.html loads filters.js and storage.js first; their API
+ * is on globalThis.SlopFilter, or required under `node --test`. `pf` is the
+ * only top-level name this file adds for them.
  */
-const pf = (typeof module !== 'undefined' && typeof require !== 'undefined')
-  ? { ...require('./filters.js'), ...require('./storage.js') }
-  : { load, save, unmute, setCategoryOn, setThreshold };
+const pf = typeof module !== 'undefined'
+  ? { ...module.require('./filters.js'), ...module.require('./storage.js') }
+  : globalThis.SlopFilter;
 
 // Same key counters.js writes when a post is caught (see LAST_CAUGHT_KEY there).
 // Not required from counters.js: that file also runs content-script setup.
-const LAST_CAUGHT_KEY = 'sfLastCaughtAt';
+const CAUGHT_KEY = 'sfLastCaughtAt';
 const CAUGHT_WINDOW_MS = 5000;   // a catch this recent makes the pig react on open
 const REACT_MS = 1600;           // two twitches, then the pig settles
 
@@ -206,8 +196,8 @@ async function initPopup(doc, api, now = Date.now()) {
 
   let caughtAt = 0;
   try {
-    const blob = await api.storage.local.get([LAST_CAUGHT_KEY]);
-    caughtAt = blob[LAST_CAUGHT_KEY] || 0;
+    const blob = await api.storage.local.get([CAUGHT_KEY]);
+    caughtAt = blob[CAUGHT_KEY] || 0;
   } catch (e) { /* no timestamp: the pig just rests */ }
 
   let timer = null;
@@ -221,16 +211,42 @@ async function initPopup(doc, api, now = Date.now()) {
   paint(now);
   renderFooter(doc, api.runtime.getManifest().version);
 
-  // Open LinkedIn tabs re-judge their posts from chrome.storage.onChanged.
-  const persist = () => pf.save(settings);
+  // Every change re-reads storage and applies one pure transform to the fresh
+  // copy, so an edit made in the Settings tab while the popup is open is not
+  // overwritten by this popup's older snapshot. Calls run one at a time so two
+  // quick clicks cannot read the same snapshot. Open LinkedIn tabs re-judge
+  // their posts from chrome.storage.onChanged.
+  let queue = Promise.resolve();
+  const update = (fn) => {
+    queue = queue.then(async () => {
+      const fresh = await pf.load();
+      const stale = JSON.stringify(fresh) !== JSON.stringify(settings);
+      settings = fn(fresh);
+      await pf.save(settings);
+      if (stale) applySettings(doc, settings);
+    });
+    return queue;
+  };
+
+  // A change made elsewhere (Settings tab, another popup) repaints this one.
+  if (api.storage.onChanged) {
+    api.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local' || !changes[pf.STORAGE_KEY]) return;
+      const next = changes[pf.STORAGE_KEY].newValue;
+      if (!next || JSON.stringify(next) === JSON.stringify(settings)) return;
+      settings = pf.migrate(next);
+      applySettings(doc, settings);
+      paint(Date.now());
+    });
+  }
 
   // The switch is the one control. A click anywhere else in the header
   // delegates to it; its own click is left alone so it toggles exactly once.
   const sw = doc.getElementById('pause-switch');
   sw.addEventListener('change', async () => {
-    settings = { ...settings, paused: !sw.checked };
+    const paused = !sw.checked;
+    await update(s => ({ ...s, paused }));
     paint(Date.now());
-    await persist();
   });
   doc.getElementById('head').addEventListener('click', e => {
     if (e.target !== sw) sw.click();
@@ -239,33 +255,31 @@ async function initPopup(doc, api, now = Date.now()) {
 
   doc.addEventListener('change', async e => {
     if (e.target.name === 'flagmode') {
-      settings.flagMode = e.target.value;
-      renderFlagHint(doc, settings.flagMode);
-      await persist();
+      const flagMode = e.target.value;
+      renderFlagHint(doc, flagMode);
+      await update(s => ({ ...s, flagMode }));
     }
     const id = e.target.dataset.toggle;
-    if (id) { settings = pf.setCategoryOn(settings, id, e.target.checked); await persist(); }
+    if (id) { const on = e.target.checked; await update(s => pf.setCategoryOn(s, id, on)); }
   });
 
   doc.addEventListener('click', async e => {
     const step = e.target.dataset.step;
     if (step) {
       const id = e.target.closest('[data-threshold]').dataset.threshold;
-      const current = settings.categories.find(c => c.id === id).threshold;
-      settings = pf.setThreshold(settings, id, current + Number(step));
-      const next = settings.categories.find(c => c.id === id).threshold;
-      e.target.parentElement.querySelector('.val').textContent = String(next);
-      await persist();
+      const val = e.target.parentElement.querySelector('.val');
+      await update(s => pf.setThreshold(s, id, s.categories.find(c => c.id === id).threshold + Number(step)));
+      val.textContent = String(settings.categories.find(c => c.id === id).threshold);
     }
     const author = e.target.dataset.unmute;
-    if (author) { settings = pf.unmute(settings, author); renderMutes(doc, settings); await persist(); }
+    if (author) { await update(s => pf.unmute(s, author)); renderMutes(doc, settings); }
   });
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { renderFilters, renderMutes, applySettings, initPopup,
+  Object.assign(module.exports, { renderFilters, renderMutes, applySettings, initPopup,
     renderStatus, settleStatus, pigState, renderFlagHint, renderFooter,
-    POPUP_PIG, LAST_CAUGHT_KEY, CAUGHT_WINDOW_MS };
+    POPUP_PIG, LAST_CAUGHT_KEY: CAUGHT_KEY, CAUGHT_WINDOW_MS });
 }
 
 if (typeof chrome !== 'undefined' && chrome.storage) initPopup(document, chrome);

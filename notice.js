@@ -4,7 +4,7 @@
  * stylesheet cannot reach it and no !important is needed.
  */
 
-const CSS = `
+const NOTICE_CSS = `
 :host { display:block; }
 /* The wash is brand red at 12% over white. 9% was too easy to scroll past;
    18% starts reading as an error state at density. The wordmark and toggle are
@@ -189,13 +189,14 @@ const PIG_BADGE =
   '<ellipse cx="70.5" cy="73" rx="3" ry="5" fill="#C62D18"/>' +
   '</g></g></svg>';
 
-/* setThreshold clamps at this ceiling, so the stepper's + stops here. */
+/* Mirror THRESHOLD_MIN/MAX in storage.js (not loaded under node, so not
+   imported); setThreshold clamps to the same range. */
 const LIMIT_CEILING = 15;
 const LIMIT_FLOOR = 2;
 
 const cap = (w) => (w ? w[0].toUpperCase() + w.slice(1) : '');
 
-function el(tag, cls, text) {
+function mkEl(tag, cls, text) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
   if (text != null) e.textContent = text;
@@ -203,14 +204,14 @@ function el(tag, cls, text) {
 }
 
 function linkBtn(text, cls = '') {
-  const b = el('button', ('link ' + cls).trim(), text);
+  const b = mkEl('button', ('link ' + cls).trim(), text);
   b.type = 'button';
   return b;
 }
 
 function card(title) {
-  const c = el('div', 'card');
-  c.appendChild(el('div', 't', title));
+  const c = mkEl('div', 'card');
+  c.appendChild(mkEl('div', 't', title));
   return c;
 }
 
@@ -226,6 +227,7 @@ function card(title) {
  * openKey/openFocus reopen a popover after the host rebuilds the notice (the
  * stepper changes settings, which re-judges the feed).
  */
+/** @param {{ [k: string]: any, onAction?: (action: string, payload?: any) => void }} opts */
 function buildNotice({ matches, author, collapsed = true, showHint = false,
   openKey = null, openFocus = null, twitch = false, onAction = () => {} }) {
   const host = document.createElement('div');
@@ -234,11 +236,11 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   const root = host.attachShadow({ mode: 'open' });
 
   const style = document.createElement('style');
-  style.textContent = CSS;
+  style.textContent = NOTICE_CSS;
   root.appendChild(style);
 
-  const wrap = el('div', 'wrap');
-  const bar = el('div', 'bar');
+  const wrap = mkEl('div', 'wrap');
+  const bar = mkEl('div', 'bar');
   wrap.appendChild(bar);
   const anchors = [];
   let hint = null;
@@ -262,7 +264,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   }
   function close(a) { setOpen(a, false); }
   function dismissHint() {
-    if (hintDismissed) return;
+    if (hintDismissed || !hint) return; // only the notice showing the tip reports it
     hintDismissed = true;
     hint?.remove();
     hint = null;
@@ -271,7 +273,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
 
   /* trigger + popover card in one hover/focus/click unit */
   function makeAnchor(key, trigger, cardEl, label, isPig) {
-    const a = el('span', 'anchor');
+    const a = mkEl('span', 'anchor');
     a.dataset.pop = key;
     if (isPig) a.dataset.triggerPig = 'true';
     trigger.dataset.trigger = 'true';
@@ -280,7 +282,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
     trigger.setAttribute('aria-haspopup', 'dialog');
     trigger.setAttribute('aria-expanded', 'false');
     trigger.setAttribute('aria-label', label);
-    const pop = el('div', 'pop');
+    const pop = mkEl('div', 'pop');
     cardEl.setAttribute('role', 'dialog');
     if (!cardEl.hasAttribute('aria-label')) cardEl.setAttribute('aria-label', cardEl.firstChild.textContent);
     pop.appendChild(cardEl);
@@ -302,12 +304,12 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   }
 
   // Pig: decorative unless there is an author to mute.
-  const glyph = el('span', 'glyph');
+  const glyph = mkEl('span', 'glyph');
   glyph.innerHTML = PIG_BADGE; // static constant, no page data
   if (twitch) glyph.classList.add('react');
   if (author) {
     const c = card(`Mute ${author}?`);
-    const d = el('div', 'd');
+    const d = mkEl('div', 'd');
     d.append('Hide every post. Can be undone in ');
     const set = linkBtn('Settings', 'inline');
     set.dataset.settings = 'true';
@@ -324,26 +326,26 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
     bar.appendChild(glyph);
   }
 
-  bar.appendChild(el('span', 'mark', 'Slop Filter'));
+  bar.appendChild(mkEl('span', 'mark', 'Slop Filter'));
 
   // Collapsed posts show nothing but this bar, so the notice has to say whose
   // post it is.
   if (author) {
-    const by = el('span', 'author', author);
+    const by = mkEl('span', 'author', author);
     by.dataset.author = author;
     bar.appendChild(by);
   }
 
-  const chips = el('div', 'chips');
+  const chips = mkEl('div', 'chips');
   const units = []; // each tag: a plain chip or a counting chip's anchor
   const seen = new Set();
   for (const m of matches) {
     if (seen.has(m.filterName)) continue;
     seen.add(m.filterName);
-    const chip = el('span', 'chip', m.filterName);
+    const chip = mkEl('span', 'chip', m.filterName);
     chip.dataset.chip = m.filterName;
     if (m.counting) {
-      chip.appendChild(el('span', 'n', String(m.count)));
+      chip.appendChild(mkEl('span', 'n', String(m.count)));
       units.push(makeAnchor(m.filterName, chip, buildLimitCard(m, onAction),
         `${m.filterName}, ${m.count}. Adjust limit`, false));
     } else {
@@ -355,9 +357,9 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   // "+N": the tags that don't fit. Same popover unit as the other tags; the
   // hidden tags themselves move into its card, so a counting tag keeps its own
   // limit popover (nested) and there is only ever one copy of each.
-  const moreBtn = el('button', 'more');
+  const moreBtn = mkEl('button', 'more');
   moreBtn.type = 'button';
-  const rest = el('div', 'card rest'); // a real popover card, like every other tag's
+  const rest = mkEl('div', 'card rest'); // a real popover card, like every other tag's
   rest.setAttribute('aria-label', 'More reasons');
   const moreAnchor = makeAnchor('more', moreBtn, rest, '', false);
   moreAnchor.dataset.more = 'true';
@@ -365,7 +367,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   chips.appendChild(moreAnchor);
   bar.appendChild(chips);
 
-  const toggle = el('button', 'toggle', collapsed ? 'Show post' : 'Hide post');
+  const toggle = mkEl('button', 'toggle', collapsed ? 'Show post' : 'Hide post');
   toggle.dataset.toggle = 'true';
   bar.appendChild(toggle);
 
@@ -382,7 +384,8 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
     const active = root.activeElement;
     for (const u of units) chips.insertBefore(u, moreAnchor); // back in order
     moreAnchor.hidden = true;
-    moreAnchor.dataset.open = 'false';
+    if (moreAnchor.dataset.open === 'true') setOpen(moreAnchor, false);
+    else moreAnchor.dataset.open = 'false';
     if (!bar.offsetWidth) return; // not laid out (detached or display:none)
     const avail = chips.clientWidth;
     const w = units.map(u => u.offsetWidth);
@@ -401,22 +404,22 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
     }
     // a tag whose popover was open before a rebuild may have moved behind +N
     if (units.slice(k).some(u => u.dataset?.open === 'true')) setOpen(moreAnchor, true);
-    if (active && root.activeElement !== active) active.focus?.();
+    if (active && root.activeElement !== active) /** @type {HTMLElement} */ (active).focus?.();
   }
-  host.sfFit = fit;
+  /** @type {any} */ (host).sfFit = fit;
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(bar);
 
   // The whole bar toggles, both ways. The button stays for keyboard users; its
   // click bubbles here (one toggle, not two). Clicks inside a popover, the
   // hint or the reasons never toggle.
   wrap.addEventListener('click', (e) => {
-    if (e.target.closest('.anchor, .hint, .detail')) return;
+    if (/** @type {Element} */ (e.target).closest('.anchor, .hint, .detail')) return;
     onAction('toggle');
   });
   root.addEventListener('click', (e) => {
-    if (!e.target.closest('.anchor')) anchors.forEach(close);
+    if (!/** @type {Element} */ (e.target).closest('.anchor')) anchors.forEach(close);
   });
-  root.addEventListener('keydown', (e) => {
+  root.addEventListener('keydown', (/** @type {KeyboardEvent} */ e) => {
     if (e.key !== 'Escape') return;
     // Close the innermost open popover first (a tag inside "+N"), then its parent.
     const opened = anchors.filter(a => a.dataset.open === 'true');
@@ -429,9 +432,9 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   });
 
   if (!collapsed) {
-    const detail = el('div', 'detail');
-    const inner = el('div', 'inner');
-    const why = el('div', 'why');
+    const detail = mkEl('div', 'detail');
+    const inner = mkEl('div', 'inner');
+    const why = mkEl('div', 'why');
     const ul = document.createElement('ul');
     const done = new Set();
     for (const m of matches) {
@@ -440,16 +443,16 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
       done.add(key);
       const li = document.createElement('li');
       li.dataset.reason = m.counting ? 'count' : 'phrase';
-      const tx = el('span', 'tx');
+      const tx = mkEl('span', 'tx');
       if (m.counting) {
-        tx.append(`${cap(m.unit)}: ${m.limit} or more `, el('span', 'dim', `(this post has ${m.count})`));
+        tx.append(`${cap(m.unit)}: ${m.limit} or more `, mkEl('span', 'dim', `(this post has ${m.count})`));
       } else {
-        tx.append('Phrase: ', el('span', 'q', `“${m.phrase}”`));
+        tx.append('Phrase: ', mkEl('span', 'q', `“${m.phrase}”`));
       }
-      const chg = el('button', 'chg', 'Change in ');
+      const chg = mkEl('button', 'chg', 'Change in ');
       chg.type = 'button';
       chg.dataset.change = 'true';
-      chg.appendChild(el('u', '', 'Settings'));
+      chg.appendChild(mkEl('u', '', 'Settings'));
       chg.setAttribute('aria-label', m.counting
         ? `Change ${m.filterName} in Settings`
         : `Change “${m.phrase}” in Settings`);
@@ -465,10 +468,10 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   }
 
   if (showHint && author) {
-    hint = el('div', 'hint');
+    hint = mkEl('div', 'hint');
     hint.setAttribute('role', 'note');
     hint.dataset.hint = 'true';
-    hint.appendChild(el('span', '', 'Tip: hover the pig to mute someone, or a tag to adjust it.'));
+    hint.appendChild(mkEl('span', '', 'Tip: hover the pig to mute someone, or a tag to adjust it.'));
     const got = linkBtn('Got it', 'inline');
     got.dataset.gotit = 'true';
     got.addEventListener('click', dismissHint);
@@ -479,7 +482,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   root.appendChild(wrap);
 
   // Reopen after a rebuild, then put keyboard focus back on the pressed button.
-  host.sfRestore = () => {
+  /** @type {any} */ (host).sfRestore = () => {
     const a = anchors.find(x => x.dataset.pop === openKey);
     if (!a) return;
     open(a);
@@ -491,11 +494,11 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
 function buildLimitCard(m, onAction) {
   let limit = m.limit;
   const c = card(m.filterName);
-  const d = el('div', 'd');
+  const d = mkEl('div', 'd');
   c.appendChild(d);
-  const step = el('div', 'step');
-  const dec = el('button', '', '−');
-  const inc = el('button', '', '+');
+  const step = mkEl('div', 'step');
+  const dec = mkEl('button', '', '−');
+  const inc = mkEl('button', '', '+');
   dec.type = inc.type = 'button';
   dec.dataset.step = '-1';
   inc.dataset.step = '1';
@@ -503,7 +506,7 @@ function buildLimitCard(m, onAction) {
   inc.setAttribute('aria-label', 'Flag at one more');
   const val = document.createElement('b');
   val.dataset.limit = 'true';
-  const lab = el('span', '', 'Flag at ');
+  const lab = mkEl('span', '', 'Flag at ');
   lab.setAttribute('aria-live', 'polite');
   lab.appendChild(val);
   step.append(dec, lab, inc);
@@ -548,6 +551,7 @@ const MUTED_CSS = `
 .undo:focus-visible { outline:2px solid #0854A0; outline-offset:2px; }
 `;
 
+/** @param {{ author: string, onAction?: (action: string, payload?: any) => void }} opts */
 function buildMutedCard({ author, onAction = () => {} }) {
   const host = document.createElement('div');
   host.dataset.sfNotice = 'true';
@@ -555,10 +559,10 @@ function buildMutedCard({ author, onAction = () => {} }) {
   const root = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = MUTED_CSS;
-  const c = el('div', 'card');
+  const c = mkEl('div', 'card');
   c.setAttribute('role', 'status');
-  c.appendChild(el('span', 'msg', `${author} is muted. Their posts won’t appear.`));
-  const undo = el('button', 'undo', 'Undo');
+  c.appendChild(mkEl('span', 'msg', `${author} is muted. Their posts won’t appear.`));
+  const undo = mkEl('button', 'undo', 'Undo');
   undo.type = 'button';
   undo.dataset.undo = 'true';
   undo.addEventListener('click', () => onAction('undoMute', author));
@@ -567,4 +571,4 @@ function buildMutedCard({ author, onAction = () => {} }) {
   return host;
 }
 
-if (typeof module !== 'undefined') module.exports = { buildNotice, buildMutedCard, CSS };
+Object.assign(typeof module !== 'undefined' ? module.exports : (globalThis.SlopFilter ||= {}), { buildNotice, buildMutedCard, CSS: NOTICE_CSS });

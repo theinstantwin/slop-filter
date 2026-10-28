@@ -10,6 +10,8 @@ node_modules/
 test/
 package.json
 package-lock.json
+jsconfig.json
+check-shims.d.ts
 CHANGELOG.md
 docs/
 research/

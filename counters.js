@@ -15,9 +15,7 @@
  * wired to `visibilitychange` so backgrounding the tab flushes immediately
  * instead of losing whatever is pending when the tab is later discarded.
  *
- * Loading model: joins the shared content-script scope like storage.js —
- * guarded require under Node, plain globals in the browser (manifest.json
- * loads this after storage.js, before notice.js).
+ * Loaded after storage.js and before notice.js (manifest.json).
  */
 
 const COUNTERS_KEY = 'sfCounters';
@@ -33,8 +31,30 @@ const DEBOUNCE_MS = 2000;
 // installed. Past this many, the least-caught phrases are dropped at flush.
 const MAX_PHRASES = 500;
 
+/**
+ * @typedef {object} Counters
+ * @property {Record<string, { caught: number, readPast: number }>} phrases
+ * @property {number} promoted
+ * @property {number} boosted
+ */
+
+/** @returns {Counters} */
 function scEmptyCounters() {
   return { phrases: {}, promoted: 0, boosted: 0 };
+}
+
+// Any stored or imported counters blob reduced to the sfCounters shape with
+// whole non-negative numbers, so a hand-edited file or a corrupted store
+// cannot break the Activity panel or poison a flush.
+/** @param {any} raw @returns {Counters} */
+function normalizeCounters(raw) {
+  const n = v => (Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
+  const phrases = {};
+  const src = raw && raw.phrases && typeof raw.phrases === 'object' && !Array.isArray(raw.phrases) ? raw.phrases : {};
+  for (const [phrase, v] of Object.entries(src)) {
+    if (v && typeof v === 'object' && phrase !== '__proto__') phrases[phrase] = { caught: n(v.caught), readPast: n(v.readPast) };
+  }
+  return { phrases, promoted: n(raw && raw.promoted), boosted: n(raw && raw.boosted) };
 }
 
 // Pending in-memory deltas since the last flush. Same shape as stored
@@ -79,13 +99,7 @@ async function scReadStored() {
     if (scContextDead(err)) return scEmptyCounters();
     throw err;
   }
-  const stored = blob[COUNTERS_KEY];
-  if (!stored || typeof stored !== 'object') return scEmptyCounters();
-  return {
-    phrases: stored.phrases && typeof stored.phrases === 'object' ? stored.phrases : {},
-    promoted: stored.promoted || 0,
-    boosted: stored.boosted || 0,
-  };
+  return normalizeCounters(blob[COUNTERS_KEY]);
 }
 
 /**
@@ -158,12 +172,6 @@ if (typeof document !== 'undefined') {
   });
 }
 
-// Own namespace, matching content.js's `sf` and storage.js's pattern of a
-// single uniquely-named binding — `sc` collides with nothing dom/filters/
-// storage declare, so counters.js is safe to load ahead of notice/menu/
-// content in the shared content-script scope.
-const sc = { record, flush, scheduleFlush, readAll, markCaught };
-
-if (typeof module !== 'undefined') {
-  module.exports = { record, flush, scheduleFlush, readAll, markCaught, LAST_CAUGHT_KEY, MAX_PHRASES };
-}
+Object.assign(typeof module !== 'undefined' ? module.exports : (globalThis.SlopFilter ||= {}), {
+  record, flush, scheduleFlush, readAll, markCaught, normalizeCounters, LAST_CAUGHT_KEY, MAX_PHRASES,
+});

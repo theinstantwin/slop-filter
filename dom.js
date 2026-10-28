@@ -167,6 +167,12 @@ function _adLabel(post) {
     // "Promoted by my boss to VP…" body/headline copy still never matches.
     if (t === 'Promoted by' || t === 'Sponsored by') return 'boosted';
     if (/^(Promoted|Sponsored) ([•·] |by )/.test(t)) return 'boosted';
+    // A co-authored post puts the label after its byline in the same text
+    // node: "with 3 others • Promoted by" (brand in its own link node). Only
+    // the exact split-node form counts after a separator, so a headline like
+    // "CEO • Promoted to VP" never does.
+    const tail = t.split(/\s*[•·]\s*/).pop();
+    if (tail !== t && (tail === 'Promoted by' || tail === 'Sponsored by')) return 'boosted';
   }
   return null;
 }
@@ -174,14 +180,10 @@ function _adLabel(post) {
 const isPromoted = post => _adLabel(post) === 'promoted';
 const isBoosted = post => _adLabel(post) === 'boosted';
 
-const domExports = {
+// Public API. Node: module.exports. Browser: the shared SlopFilter namespace,
+// because scripts there share one scope and top-level names must not collide.
+Object.assign(typeof module !== 'undefined' ? module.exports : (globalThis.SlopFilter ||= {}), {
   SEL, getPosts, getAuthor, getPostText,
   getSocialProof, whenFeedReady,
   isPromoted, isBoosted,
-};
-
-if (typeof module !== 'undefined') {
-  module.exports = domExports;
-} else {
-  window.dom = domExports;
-}
+});
