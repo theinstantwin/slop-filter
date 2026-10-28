@@ -43,7 +43,11 @@ const COUNTERS = {
 // ever carry {id, name, def, on, labs: true}.
 const LABS_PATTERNS = {
   followVerbAlternation: /(hit|click|tap|smash|give)[^.]{0,18}follow/gi,
-  commentReplyGating: /(comment|reply)[^.]{1,25}(and i'?ll|to get|for the|if you want|and it'?s yours|to claim your)/gi,
+  // Comment/reply as an instruction only: the bare verb, not "comments" or
+  // "replies", and not the noun in "the/first/my/this comment". "Full blog
+  // post in the comments if you want the longer version" is the link-in-
+  // comments habit, not a gate.
+  commentReplyGating: /(?<!\b(?:the|first|my|this) )\b(comment|reply)\b[^.]{1,25}(and i'?ll|to get|for the|if you want|and it'?s yours|to claim your)/gi,
   // Moved from a plain-text SEED_CATEGORIES rule after "#ad" (a bare literal
   // string via compile(), no word boundary) matched inside #adcampaigns,
   // #advertising, #adnews — any hashtag merely starting with "ad". \b can't
