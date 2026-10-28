@@ -1,9 +1,15 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><link rel="stylesheet" href="popup.css"></head>
 <body>
-  <header class="head">
-    <button type="button" class="pig-btn" id="pig-toggle" aria-pressed="false" aria-label="Pause filtering"></button>
-    <span class="wm">Slop Filter</span>
+  <header class="head" id="head">
+    <span class="pig-btn" id="pig-toggle" aria-hidden="true"></span>
+    <span class="stack">
+      <span class="wm">Slop Filter</span>
+      <span class="hsw">
+        <span class="hsw-track"><input type="checkbox" id="pause-switch" role="switch" checked aria-checked="true" aria-label="Filtering"><i></i></span>
+        <span class="hsw-lbl" id="switch-label">On</span>
+      </span>
+    </span>
     <span class="lbl" id="status" role="status">Watching your feed</span>
   </header>
 
@@ -22,7 +28,6 @@
   <footer class="foot">
     <span class="ver" id="version"></span>
     <span class="links">
-      <button type="button" class="link" id="pause-link">Pause filtering</button>
       <button type="button" class="link" id="open-settings">Open Settings</button>
     </span>
   </footer>

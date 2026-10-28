@@ -59,18 +59,23 @@ function pigState(settings, caughtAt, now) {
   return 'awake';
 }
 
-/** Draws the header pig, status label, button state and footer link for a state. */
+/** Draws the header pig, status label and pause switch for a state. */
 function renderStatus(doc, state) {
   const btn = doc.getElementById('pig-toggle');
   btn.innerHTML = POPUP_PIG; // static constant, no page data
   const svg = btn.querySelector('svg');
   if (state === 'asleep') svg.classList.add('asleep');
   if (state === 'react') svg.classList.add('react');
-  btn.setAttribute('aria-pressed', String(state === 'asleep'));
+  const on = state !== 'asleep';
+  const sw = doc.getElementById('pause-switch');
+  if (sw) {
+    sw.checked = on;
+    sw.setAttribute('aria-checked', String(on));
+  }
+  const swl = doc.getElementById('switch-label');
+  if (swl) swl.textContent = on ? 'On' : 'Paused';
   doc.getElementById('status').textContent =
     state === 'asleep' ? LABEL_PAUSED : state === 'react' ? LABEL_CAUGHT : LABEL_ON;
-  const link = doc.getElementById('pause-link');
-  if (link) link.textContent = state === 'asleep' ? 'Resume' : 'Pause filtering';
 }
 
 /** After the twitch finishes, drop back to the resting awake pig. */
@@ -214,13 +219,17 @@ async function initPopup(doc, api, now = Date.now()) {
   // Open LinkedIn tabs re-judge their posts from chrome.storage.onChanged.
   const persist = () => pf.save(settings);
 
-  const togglePause = async () => {
-    settings = { ...settings, paused: !settings.paused };
+  // The switch is the one control. A click anywhere else in the header
+  // delegates to it; its own click is left alone so it toggles exactly once.
+  const sw = doc.getElementById('pause-switch');
+  sw.addEventListener('change', async () => {
+    settings = { ...settings, paused: !sw.checked };
     paint(Date.now());
     await persist();
-  };
-  doc.getElementById('pig-toggle').addEventListener('click', togglePause);
-  doc.getElementById('pause-link').addEventListener('click', togglePause);
+  });
+  doc.getElementById('head').addEventListener('click', e => {
+    if (e.target !== sw) sw.click();
+  });
   doc.getElementById('open-settings').addEventListener('click', () => api.runtime.openOptionsPage());
 
   doc.addEventListener('change', async e => {

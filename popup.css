@@ -43,13 +43,27 @@ button{font-family:inherit}
   padding:14px 18px;
   background:var(--band);
   border-bottom:1px solid var(--band-line);
+  cursor:pointer;
 }
-.pig-btn{
-  width:34px;height:34px;flex:none;padding:2px;
-  background:none;border:0;border-radius:50%;cursor:pointer;
+.pig-btn{width:38px;height:38px;flex:none;padding:2px;display:block}
+.stack{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+/* header switch: a real checkbox (role=switch) over a small track */
+.hsw{display:flex;align-items:center;gap:6px}
+.hsw-track{position:relative;display:inline-block;width:26px;height:15px}
+.hsw-track input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:2}
+.hsw-track i{
+  position:absolute;inset:0;border-radius:999px;background:var(--off);
+  transition:background 160ms ease;pointer-events:none;
 }
-.pig-btn:hover{background:rgba(0,0,0,.06)}
-.pig-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.hsw-track i::after{
+  content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform 160ms ease;
+}
+.hsw-track input:checked+i{background:var(--blue)}
+.hsw-track input:checked+i::after{transform:translateX(11px)}
+.hsw-track input:focus-visible+i{outline:2px solid var(--blue);outline-offset:2px}
+.hsw-lbl{font-size:11px;font-weight:600;color:var(--ink3)}
+.hsw:has(input:checked) .hsw-lbl{color:var(--blue)}
 .pig{width:100%;height:100%;display:block;overflow:visible}
 .pig .bg{transition:fill .3s}
 .wm{font:700 17px/1 var(--display);letter-spacing:.01em;color:var(--ink)}
@@ -78,7 +92,7 @@ button{font-family:inherit}
   .pig.react *,.pig.asleep .z{animation:none!important}
   .pig.asleep .z{opacity:1}
   .pig .bg{transition:none}
-  .sw span,.sw span::after{transition:none}
+  .sw span,.sw span::after,.hsw-track i,.hsw-track i::after{transition:none}
 }
 
 /* sections */
@@ -149,5 +163,3 @@ button{font-family:inherit}
 .link{font-size:12px;font-weight:600;color:var(--blue);background:none;border:0;cursor:pointer;padding:0}
 .link:hover{text-decoration:underline}
 .link:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:2px}
-#pause-link{font-weight:500;color:var(--ink3)}
-#pause-link:hover{color:var(--ink2)}

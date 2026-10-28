@@ -16,9 +16,12 @@ const CSS = `
   border-bottom:1px solid rgba(0,0,0,.08);
   border-radius:7px 7px 0 0;
   padding:9px 16px;
-  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
   font-family:Geist,-apple-system,system-ui,sans-serif;
 }
+/* The bar is always ONE line: pig, wordmark, author, tags, toggle. Tags that
+   don't fit collapse into a "+N" tag (see fit() in buildNotice). The reasons
+   list sits below the bar, never beside it. */
+.bar { display:flex; align-items:center; gap:8px; flex-wrap:nowrap; min-width:0; }
 :host([data-collapsed="true"]) .wrap { border-radius:7px; border-bottom:0; }
 /* Sits at the same x-position as a post's avatar, so a saturated circle
    breaks a pattern the eye is already scanning down the feed. This is what
@@ -34,7 +37,19 @@ const CSS = `
   font-size:12px; color:rgba(0,0,0,.6); flex-shrink:0;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;
 }
-.chips { display:flex; gap:5px; flex-wrap:wrap; }
+.chips { display:flex; gap:5px; flex-wrap:nowrap; flex:1 1 0; min-width:0; }
+.chips > * { flex:none; }
+.chip { white-space:nowrap; }
+.more {
+  font-family:inherit; font-size:11.5px; font-weight:600; white-space:nowrap;
+  color:#9E1B0B; background:none; border:1px dashed rgba(158,27,11,.4);
+  border-radius:3px; padding:2px 7px; cursor:pointer;
+}
+.anchor[data-open="true"] > .more, .more:hover { background:rgba(198,45,24,.10); border-style:solid; }
+.anchor[hidden] { display:none; }
+.anchor[data-more] .pop { left:auto; right:0; }
+.anchor[data-more] .card { width:auto; min-width:0; }
+.rest { display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
 /* B0: tinted fill rather than the old solid-red chip. Solid fills competed
    with the glyph for the one saturated accent in the row; the tint lets the
    glyph lead and keeps the badges as supporting detail. */
@@ -48,7 +63,7 @@ const CSS = `
 /* LinkedIn's own blue, darkened for AA on the wash. Inheriting the platform's
    action colour means the affordance is already learned. */
 .toggle {
-  margin-left:auto; flex-shrink:0;
+  margin-left:auto; flex-shrink:0; white-space:nowrap;
   font-family:inherit; font-size:13px; font-weight:600;
   color:#0854A0; background:none; border:0;
   padding:6px 8px; border-radius:4px; cursor:pointer;
@@ -70,7 +85,7 @@ const CSS = `
 /* The hairline spans the notice's full width: the negative margins cancel the
    bar's 16px side padding, and the basis adds it back so the row still fits. */
 .detail {
-  flex-basis:calc(100% + 32px); margin:9px -16px 0; cursor:auto;
+  margin:9px -16px 0; cursor:auto;
   border-top:1px solid rgba(176,40,26,.18);
   display:grid; grid-template-rows:1fr;
   animation:sf-unfold .22s cubic-bezier(.25,.7,.3,1);
@@ -105,7 +120,7 @@ const CSS = `
 .anchor[data-trigger-pig] { flex-shrink:0; }
 [data-trigger] { cursor:pointer; }
 .pop { display:none; position:absolute; left:0; top:100%; z-index:5; padding-top:6px; cursor:auto; }
-.anchor[data-open="true"] .pop { display:block; }
+.anchor[data-open="true"] > .pop { display:block; }
 .card {
   background:#fff; border:1px solid rgba(0,0,0,.12); border-radius:8px;
   box-shadow:0 6px 20px rgba(0,0,0,.12); padding:10px 12px; width:236px;
@@ -141,7 +156,7 @@ const CSS = `
 .hint .link { color:rgba(0,0,0,.5); display:inline; padding:0; font-weight:500; }
 .anchor[data-trigger-pig] [data-trigger] { border-radius:50%; display:block; }
 .anchor[data-trigger-pig][data-open="true"] [data-trigger] { box-shadow:0 0 0 3px #EFCFC8; }
-.anchor[data-open="true"] .chip { background:#E6BAB1; }
+.anchor[data-open="true"] > .chip { background:#E6BAB1; }
 /* The pig twitches snout and ears twice, once, the first time a notice renders. */
 .glyph svg { overflow:visible; }
 .react .snout { animation:sf-snout .5s ease-in-out 2; transform-origin:64px 73px; transform-box:view-box; }
@@ -223,6 +238,8 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   root.appendChild(style);
 
   const wrap = el('div', 'wrap');
+  const bar = el('div', 'bar');
+  wrap.appendChild(bar);
   const anchors = [];
   let hint = null;
   let hintDismissed = false;
@@ -232,7 +249,10 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
     a.querySelector('[data-trigger]').setAttribute('aria-expanded', String(on));
   }
   function open(a) {
-    for (const o of anchors) if (o !== a && o.dataset.open === 'true') setOpen(o, false);
+    // an anchor nested in another (a tag inside "+N") keeps its parent open
+    for (const o of anchors) {
+      if (o !== a && o.dataset.open === 'true' && !o.contains(a)) setOpen(o, false);
+    }
     setOpen(a, true);
   }
   function close(a) { setOpen(a, false); }
@@ -257,7 +277,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
     trigger.setAttribute('aria-label', label);
     const pop = el('div', 'pop');
     cardEl.setAttribute('role', 'dialog');
-    cardEl.setAttribute('aria-label', cardEl.firstChild.textContent);
+    if (!cardEl.hasAttribute('aria-label')) cardEl.setAttribute('aria-label', cardEl.firstChild.textContent);
     pop.appendChild(cardEl);
     a.append(trigger, pop);
 
@@ -293,23 +313,24 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
     mute.dataset.mute = 'true';
     mute.addEventListener('click', () => { onAction('mute', author); anchors.forEach(close); });
     c.appendChild(mute);
-    wrap.appendChild(makeAnchor('pig', glyph, c, `Mute ${author}?`, true));
+    bar.appendChild(makeAnchor('pig', glyph, c, `Mute ${author}?`, true));
   } else {
     glyph.setAttribute('aria-hidden', 'true');
-    wrap.appendChild(glyph);
+    bar.appendChild(glyph);
   }
 
-  wrap.appendChild(el('span', 'mark', 'Slop Filter'));
+  bar.appendChild(el('span', 'mark', 'Slop Filter'));
 
   // Collapsed posts show nothing but this bar, so the notice has to say whose
   // post it is.
   if (author) {
     const by = el('span', 'author', author);
     by.dataset.author = author;
-    wrap.appendChild(by);
+    bar.appendChild(by);
   }
 
   const chips = el('div', 'chips');
+  const units = []; // each tag: a plain chip or a counting chip's anchor
   const seen = new Set();
   for (const m of matches) {
     if (seen.has(m.filterName)) continue;
@@ -318,17 +339,67 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
     chip.dataset.chip = m.filterName;
     if (m.counting) {
       chip.appendChild(el('span', 'n', String(m.count)));
-      chips.appendChild(makeAnchor(m.filterName, chip, buildLimitCard(m, onAction),
+      units.push(makeAnchor(m.filterName, chip, buildLimitCard(m, onAction),
         `${m.filterName}, ${m.count}. Adjust limit`, false));
     } else {
-      chips.appendChild(chip); // plain label: phrases are changed in Settings
+      units.push(chip); // plain label: phrases are changed in Settings
     }
   }
-  wrap.appendChild(chips);
+  units.forEach(u => chips.appendChild(u));
+
+  // "+N": the tags that don't fit. Same popover unit as the other tags; the
+  // hidden tags themselves move into its card, so a counting tag keeps its own
+  // limit popover (nested) and there is only ever one copy of each.
+  const moreBtn = el('button', 'more');
+  moreBtn.type = 'button';
+  const rest = el('div', 'rest');
+  rest.setAttribute('aria-label', 'More reasons');
+  const moreAnchor = makeAnchor('more', moreBtn, rest, '', false);
+  moreAnchor.dataset.more = 'true';
+  moreAnchor.hidden = true;
+  chips.appendChild(moreAnchor);
+  bar.appendChild(chips);
 
   const toggle = el('button', 'toggle', collapsed ? 'Show post' : 'Hide post');
   toggle.dataset.toggle = 'true';
-  wrap.appendChild(toggle);
+  bar.appendChild(toggle);
+
+  const TAG_GAP = 5;
+  function setMore(n) {
+    moreBtn.textContent = `+${n}`;
+    moreBtn.setAttribute('aria-label', `${n} more ${n === 1 ? 'reason' : 'reasons'}`);
+  }
+  /* Show as many tags as fit, the rest behind "+N". Measures live (the
+     ResizeObserver below re-runs it), so a wide window shows every tag and a
+     narrow one collapses sooner. Pig, wordmark, author and toggle never give
+     way: the tags area is whatever width is left over. */
+  function fit() {
+    const active = root.activeElement;
+    for (const u of units) chips.insertBefore(u, moreAnchor); // back in order
+    moreAnchor.hidden = true;
+    moreAnchor.dataset.open = 'false';
+    if (!bar.offsetWidth) return; // not laid out (detached or display:none)
+    const avail = chips.clientWidth;
+    const w = units.map(u => u.offsetWidth);
+    const upto = (k) => w.slice(0, k).reduce((a, b) => a + b, 0) + TAG_GAP * Math.max(0, k - 1);
+    let k = units.length;
+    if (upto(k) > avail) {
+      moreAnchor.hidden = false;
+      for (k = units.length - 1; k >= 0; k--) {
+        setMore(units.length - k);
+        const mw = moreAnchor.offsetWidth;
+        if (upto(k) + (k ? TAG_GAP : 0) + mw <= avail) break;
+      }
+      k = Math.max(0, k);
+      setMore(units.length - k);
+      for (const u of units.slice(k)) rest.appendChild(u);
+    }
+    // a tag whose popover was open before a rebuild may have moved behind +N
+    if (units.slice(k).some(u => u.dataset?.open === 'true')) setOpen(moreAnchor, true);
+    if (active && root.activeElement !== active) active.focus?.();
+  }
+  host.sfFit = fit;
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(bar);
 
   // The whole bar toggles, both ways. The button stays for keyboard users; its
   // click bubbles here (one toggle, not two). Clicks inside a popover, the
@@ -342,8 +413,10 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   });
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    for (const a of anchors) {
-      if (a.dataset.open !== 'true') continue;
+    // Close the innermost open popover first (a tag inside "+N"), then its parent.
+    const opened = anchors.filter(a => a.dataset.open === 'true');
+    for (const a of opened) {
+      if (opened.some(o => o !== a && a.contains(o))) continue;
       const hadFocus = a.contains(root.activeElement);
       close(a);
       if (hadFocus) a.querySelector('[data-trigger]').focus();
