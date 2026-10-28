@@ -4,7 +4,7 @@
  *
  * Loading model: under the extension these are plain content scripts sharing
  * ONE isolated-world scope, loaded in manifest order, so dom/filters/storage/
- * notice/menu have already declared their top-level names by the time this
+ * notice have already declared their top-level names by the time this
  * file runs. Under Node they are required instead.
  *
  * This file must therefore not declare ANY top-level identifier that an
@@ -16,7 +16,7 @@
  * error kills the entire content-script bundle silently.
  *
  * So: one uniquely-named binding, resolved per environment. `sf` collides with
- * nothing in dom/filters/storage/notice/menu.
+ * nothing in dom/filters/storage/notice.
  */
 
 const sf = (typeof module !== 'undefined' && typeof require !== 'undefined')
@@ -26,7 +26,6 @@ const sf = (typeof module !== 'undefined' && typeof require !== 'undefined')
       ...require('./storage.js'),
       ...require('./counters.js'),
       ...require('./notice.js'),
-      ...require('./menu.js'),
     }
   : {
       SEL, getPosts, getAuthor, getPostText, whenFeedReady,
@@ -35,7 +34,7 @@ const sf = (typeof module !== 'undefined' && typeof require !== 'undefined')
       load, save, migrate, STORAGE_KEY,
       mute, allowPhrase, unallowPhrase, setCategoryOn, setThreshold,
       ...sc,
-      buildNotice, attachMenuWatcher,
+      buildNotice,
     };
 
 let settings = null;
@@ -97,10 +96,6 @@ function processPost(post, current) {
     return false;
   }
 
-  // "Read anyway" from the ··· menu is the reader's call on this post and
-  // outlives a settings change; only ads and mutes above still apply.
-  if (post.dataset.sfDismissed === 'true') return false;
-
   const text = sf.getPostText(post);
   const matches = sf.findMatches(text, {
     categories: current.categories,
@@ -130,8 +125,8 @@ function countOnce(post, record) {
 }
 
 // Every verdict processPost writes. Not here, so they survive a re-judge:
-// sfCaught/sfCounted (counters never count a post twice), sfRevealed and
-// sfDismissed (the reader's own choices), sfOpenPost (menu bookkeeping).
+// sfCaught/sfCounted (counters never count a post twice) and sfRevealed
+// (the reader's own choice).
 const VERDICT_KEYS = ['sfProcessed', 'sfFlagged', 'sfFilters', 'sfCollapsed',
   'sfMuted', 'sfPromoted', 'sfBoosted'];
 
@@ -150,32 +145,39 @@ function applySettings(next) {
   scanFeed();
 }
 
+// The one-time tip lives on a single notice: the first one rendered. Rebuilds
+// of that same post keep it; a post that left the page hands it on.
+let hintPost = null;
+// Set by the limit stepper so the rebuild that follows reopens its popover.
+let reopen = null;
+
 /**
  * Replace whatever notice the post currently has with a fresh one.
  */
 function renderNotice(post, matches, author, collapsed) {
   post.querySelector('[data-sf-notice]')?.remove();
+  let showHint = false;
+  if (settings && !settings.noticeHintSeen && author) {
+    if (!hintPost || hintPost === post || !hintPost.isConnected) {
+      hintPost = post;
+      showHint = true;
+    }
+  }
+  const mine = reopen && reopen.post === post ? reopen : null;
   const notice = sf.buildNotice({
     matches,
     author,
     collapsed,
+    showHint,
+    openKey: mine?.key ?? null,
+    openFocus: mine?.focus ?? null,
     onAction: (action, payload) => onNoticeAction(post, action, payload, matches, author),
   });
   post.insertBefore(notice, post.firstChild);
+  if (mine) { notice.sfRestore?.(); reopen = null; }
 }
 
-/**
- * The notice's only channel back into state.
- *
- * The toggle is TWO states — Show post <-> Hide post — and the receipt rides
- * with the revealed post (buildNotice renders it whenever not collapsed).
- *
- * `payload` is the matched phrase for allow/unallow, and the whole match
- * object for raiseLimit/restoreLimit — counting matches aren't phrases, so
- * resolving one means moving that category's threshold, never allowlisting
- * a synthetic "11 emoji" entry the counting matcher would ignore.
- */
-// One mute path for the ··· menu and the notice's Mute button.
+// One mute path, used by the pig popover's Mute link.
 async function muteAuthor(author) {
   settings = sf.mute(settings, author);
   await sf.save(settings);
@@ -184,6 +186,14 @@ async function muteAuthor(author) {
   }
 }
 
+/**
+ * The notice's only channel back into state.
+ *
+ * toggle: Show post <-> Hide post. mute: the pig popover. allow: "Stop
+ * flagging this phrase". setLimit: the counting chip's stepper, which saves
+ * at once and re-judges the page so a post that no longer qualifies un-flags.
+ * openSettings: the pig popover's Settings link. dismissHint: the one-time tip.
+ */
 function onNoticeAction(post, action, payload, matches, author) {
   if (action === 'mute') {
     muteAuthor(payload);
@@ -195,7 +205,7 @@ function onNoticeAction(post, action, payload, matches, author) {
 
     if (collapsed) {
       // "Show post": this is the reader choosing to read a flagged post
-      // anyway, same as onReadAnyway from the ··· menu — count it once per
+      // anyway — count it once per
       // post, not once per toggle.
       delete post.dataset.sfCollapsed;
       post.dataset.sfRevealed = 'true';
@@ -213,60 +223,31 @@ function onNoticeAction(post, action, payload, matches, author) {
     return;
   }
 
-  if (action === 'allow' || action === 'unallow') {
-    settings = action === 'allow'
-      ? sf.allowPhrase(settings, payload)
-      : sf.unallowPhrase(settings, payload);
+  if (action === 'allow') {
+    // Apply first: the save's onChanged echo then matches and is skipped.
+    applySettings(sf.allowPhrase(settings, payload));
     sf.save(settings);
     return;
   }
 
-  if (action === 'raiseLimit' || action === 'restoreLimit') {
-    // Fire condition is n >= threshold, so allowing a count of N means a
-    // threshold of N+1. restoreLimit puts back the limit that fired.
-    const n = action === 'raiseLimit' ? payload.count + 1 : payload.limit;
-    settings = sf.setThreshold(settings, payload.filterId, n);
+  if (action === 'setLimit') {
+    reopen = { post, key: matches.find(m => m.filterId === payload.filterId)?.filterName, focus: payload.focus };
+    applySettings(sf.setThreshold(settings, payload.filterId, payload.n));
+    reopen = null;
+    sf.save(settings);
+    return;
+  }
+
+  if (action === 'openSettings') {
+    if (typeof chrome !== 'undefined') chrome.runtime?.sendMessage?.({ type: 'sf-open-settings', panel: 'muted' });
+    return;
+  }
+
+  if (action === 'dismissHint') {
+    hintPost = null;
+    settings = { ...settings, noticeHintSeen: true };
     sf.save(settings);
   }
-}
-
-/**
- * Record which post owns the control menu that is about to open.
- *
- * The menu is PORTALED — it renders outside the post, so once it is open there
- * is no DOM path from the menu back to its post. The only moment the link is
- * observable is the click on the trigger. Capture phase, and mousedown rather
- * than click, so the tag is in place before LinkedIn's own handler opens the
- * menu and menu.js's observer fires getContext().
- *
- * Without this the menu still renders, still responds to clicks, and does
- * nothing: getContext() returns no author and no filters, so Mute and Allow
- * never appear and Read anyway returns immediately.
- */
-function tagPostOnMenuOpen(root) {
-  const tag = event => {
-    const trigger = event.target.closest?.(sf.SEL.menuTrigger);
-    if (!trigger) return;
-    // Only a NEW trigger moves the tag. An earlier version cleared it on any
-    // mousedown anywhere, which broke "Read anyway" for every mouse user: the
-    // mousedown on the menu item itself (portaled, outside the post) wiped
-    // the tag a few ms before the click handler went looking for it, so
-    // onReadAnyway found no post and returned. Keyboard activation (Enter →
-    // click, no mousedown) was the only path that worked. Verified live
-    // 2026-09-01. A stale tag between menus is harmless — getContext() only
-    // runs when a post menu is decorated, which only follows a trigger click.
-    for (const stale of root.querySelectorAll('[data-sf-open-post]')) {
-      delete stale.dataset.sfOpenPost;
-    }
-    const post = trigger.closest(sf.SEL.listitem);
-    if (post) post.dataset.sfOpenPost = 'true';
-  };
-  // mousedown covers the mouse path (fires before LinkedIn's own click handler
-  // opens the menu); click covers keyboard activation (Enter/Space on a
-  // focused trigger fires click, not mousedown). Both capture phase, same
-  // reasoning as the original mousedown-only listener.
-  root.addEventListener('mousedown', tag, true);
-  root.addEventListener('click', tag, true);
 }
 
 function scanFeed() {
@@ -294,49 +275,6 @@ async function init() {
   // querySelectorAll and processPost's sfProcessed guard short-circuits
   // already-handled posts, so a scan every 2s is cheap even on a long feed.
   setInterval(scanFeed, 2000);
-
-  tagPostOnMenuOpen(document);
-
-  sf.attachMenuWatcher({
-    getContext: () => {
-      const open = document.querySelector('[data-sf-open-post]');
-      return {
-        author: open ? sf.getAuthor(open) : null,
-        filterNames: open ? (open.dataset.sfFilters || '').split(',').filter(Boolean) : [],
-      };
-    },
-    onMute: muteAuthor,
-    onReadAnyway: () => {
-      const open = document.querySelector('[data-sf-open-post]');
-      if (!open) return;
-      // The notice is about to be removed and no per-match phrase list
-      // survives on the DOM (sfFilters only keeps category names) — recompute
-      // the matches against current settings so readPast is still per-phrase.
-      if (!open.dataset.sfCounted) {
-        open.dataset.sfCounted = 'true';
-        const text = sf.getPostText(open);
-        const matches = sf.findMatches(text, {
-          categories: settings.categories,
-          allowed: settings.allowedPhrases,
-        });
-        for (const m of matches) sf.record('readPast', m.phrase);
-        sf.scheduleFlush();
-      }
-      open.querySelector('[data-sf-notice]')?.remove();
-      open.dataset.sfDismissed = 'true';
-      delete open.dataset.sfFlagged;
-      delete open.dataset.sfCollapsed;
-    },
-    // Turning a category off makes every notice from it stale, so the page
-    // is re-judged in place.
-    onAllowFilter: async name => {
-      const cat = settings.categories.find(c => c.name === name);
-      if (!cat) return;
-      // Apply first: the save's onChanged echo then matches and is skipped.
-      applySettings(sf.setCategoryOn(settings, cat.id, false));
-      await sf.save(settings);
-    },
-  });
 }
 
 /**
@@ -358,6 +296,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { processPost, onNoticeAction, renderNotice, tagPostOnMenuOpen,
-    applySettings, onStorageChanged };
+  module.exports = { processPost, onNoticeAction, renderNotice,
+    applySettings, onStorageChanged,
+    resetNoticeState: () => { hintPost = null; reopen = null; } };
 }

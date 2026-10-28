@@ -67,6 +67,7 @@ function buildDefaults(SEED) {
     allowedPhrases: [],
     mutedAuthors: [],
     whitelistedAuthors: [],
+    noticeHintSeen: false,           // the one-time pig/tag tip, dismissed forever
     // No stats here. A 1.0-era { hidden, allowed } tally lived in this blob with
     // a reader and no writer — a permanent 0 indistinguishable from the filter
     // being dead. 1.2's Activity counters go under their OWN storage key so
@@ -169,6 +170,7 @@ function upgradeToV2(stored, SEED = _SEED) {
     allowedPhrases: Array.isArray(stored.allowedPhrases) ? stored.allowedPhrases.slice() : [],
     mutedAuthors: Array.isArray(stored.mutedAuthors) ? stored.mutedAuthors.slice() : [],
     whitelistedAuthors: Array.isArray(stored.whitelistedAuthors) ? stored.whitelistedAuthors.slice() : [],
+    noticeHintSeen: stored.noticeHintSeen === true,
   };
 }
 
@@ -271,7 +273,7 @@ function setThreshold(settings, id, n) {
   const next = clone(settings);
   const cat = next.categories.find(c => c.id === id);
   const num = Number(n);
-  if (cat && Number.isFinite(num)) cat.threshold = Math.max(2, Math.min(15, num));
+  if (cat && Number.isFinite(num)) cat.threshold = Math.max(1, Math.min(15, num));
   return next;
 }
 

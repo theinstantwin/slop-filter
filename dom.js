@@ -15,9 +15,6 @@ const SEL = {
   textBox:     '[data-testid="expandable-text-box"]',
   moreButton:  '[data-testid="expandable-text-button"]',
   menuTrigger: 'button[aria-label^="Open control menu for post by"]',
-  hideTrigger: 'button[aria-label^="Hide post by"]',
-  openMenu:    '[role="menu"]',
-  menuItem:    '[role="menuitem"]',
 };
 
 const MENU_PREFIX = 'Open control menu for post by ';
@@ -112,24 +109,6 @@ function getSocialProof(post) {
 }
 
 /**
- * The open control menu for a given post.
- *
- * The menu is PORTALED — it renders outside the post element, not within it,
- * so `post.querySelector('[role="menu"]')` never finds it. It must be located
- * globally after the trigger is clicked.
- *
- * Video posts also render their own [role="menu"] / [role="menuitem"] nodes
- * for subtitle settings, so match on the menu's known items rather than
- * assuming the first menu found is the right one.
- */
-const POST_MENU_RE = /Report post|Copy link to post|Not interested/;
-
-function isPostMenu(el) {
-  if (!el || el.getAttribute?.('role') !== 'menu') return false;
-  return POST_MENU_RE.test(el.textContent || '');
-}
-
-/**
  * Wait for the feed to exist — it is absent at document_idle.
  *
  * No give-up timeout: this is a content script in a SPA, not a page load
@@ -197,7 +176,7 @@ const isBoosted = post => _adLabel(post) === 'boosted';
 
 const domExports = {
   SEL, getPosts, getAuthor, getPostText,
-  getSocialProof, isPostMenu, whenFeedReady,
+  getSocialProof, whenFeedReady,
   isPromoted, isBoosted,
 };
 

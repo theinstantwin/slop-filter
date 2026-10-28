@@ -8,7 +8,7 @@
   "background": { "service_worker": "background.js" },
   "content_scripts": [{
     "matches": ["https://www.linkedin.com/*"],
-    "js": ["dom.js", "filters.js", "storage.js", "counters.js", "notice.js", "menu.js", "content.js"],
+    "js": ["dom.js", "filters.js", "storage.js", "counters.js", "notice.js", "content.js"],
     "css": ["content.css"],
     "run_at": "document_idle"
   }],

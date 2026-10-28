@@ -55,81 +55,80 @@ const CSS = `
 }
 .toggle:hover { background:rgba(0,0,0,.08); }
 /* The bar is the click target (see buildNotice). Hover deepens the wash one
-   step and nothing moves; the receipt is excluded so hovering an Allow row
-   doesn't light up the whole bar. */
-.wrap { cursor:pointer; transition:background-color .12s ease; }
-.wrap:hover:not(:has(.detail:hover)) { background-color:#F4DCD7; }
-.detail { cursor:auto; }
-.toggle:focus-visible { outline:2px solid #0854A0; outline-offset:2px; }
+   step and nothing moves; popovers and the reasons list are excluded so
+   pointing at them doesn't light up the whole bar. */
+.wrap { cursor:pointer; transition:background-color .12s ease; position:relative; }
+.wrap:hover:not(:has(.anchor:hover, .detail:hover, .hint:hover)) { background-color:#F4DCD7; }
+.toggle:focus-visible, .link:focus-visible, .step button:focus-visible,
+[data-trigger]:focus-visible { outline:2px solid #0854A0; outline-offset:2px; }
 
 /* The notice is rebuilt on every toggle (renderNotice replaces the node), so
-   the reveal is a one-shot entrance ANIMATION, not a transition: the receipt
-   unfolds, then its content settles in just behind the unfold. Collapse has
+   the reveal is a one-shot entrance ANIMATION, not a transition. Collapse has
    no exit animation — the node is destroyed — which reads as a quick close. */
 @keyframes sf-unfold { from { grid-template-rows:0fr; } to { grid-template-rows:1fr; } }
 @keyframes sf-settle { from { opacity:0; transform:translateY(-4px); } }
 .detail {
-  flex-basis:100%; width:100%;
+  flex-basis:100%; width:100%; cursor:auto;
   display:grid; grid-template-rows:1fr;
   animation:sf-unfold .22s cubic-bezier(.25,.7,.3,1);
 }
 .detail > .inner { overflow:hidden; min-height:0; }
-.receipt {
-  background:#fff; border:1px solid rgba(0,0,0,.11);
-  border-radius:4px; margin:6px 0 2px; overflow:hidden;
-  animation:sf-settle .2s ease .07s backwards;
+.why {
+  margin:4px 0 2px 30px; font-size:13.5px; line-height:1.55;
+  color:rgba(0,0,0,.78); animation:sf-settle .2s ease .07s backwards;
 }
-@media (prefers-reduced-motion: reduce) {
-  .detail, .receipt { animation:none; }
-  .wrap { transition:none; }
-}
-.lbl {
-  display:flex; justify-content:space-between; gap:8px;
-  font-size:12px; font-weight:600; color:rgba(0,0,0,.6);
-  padding:7px 10px 6px; border-bottom:1px solid rgba(0,0,0,.08);
-}
-.lbl span { font-weight:400; color:rgba(0,0,0,.56); font-size:11.5px; }
-.row {
-  display:flex; align-items:center; gap:10px;
-  padding:7px 10px; border-bottom:1px solid rgba(0,0,0,.08);
-}
-.row[data-allowed="true"] { opacity:.55; }
-.cat {
-  font-family:"SF Mono",ui-monospace,Menlo,monospace;
-  font-size:9px; font-weight:600; letter-spacing:.04em;
-  color:#fff; background:#C62D18; border-radius:2px;
-  padding:2px 6px; width:90px; text-align:center; flex-shrink:0;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-}
-.row[data-allowed="true"] .cat { background:rgba(0,0,0,.45); }
+.why ul { margin:0; padding-left:16px; }
 .q {
-  flex:1; min-width:0;
   font-family:"SF Mono",ui-monospace,Menlo,monospace;
-  font-size:11.5px; line-height:1.55; color:#C62D18;
-  text-decoration:line-through; text-decoration-thickness:1px;
+  font-size:12.5px; color:#B0281A;
 }
-.q small {
-  text-decoration:none; display:inline-block; margin-left:6px;
-  color:rgba(0,0,0,.56); font-family:Geist,-apple-system,system-ui,sans-serif;
-  font-size:11px;
+
+/* Popovers. The anchor wraps trigger + card so moving the pointer from one to
+   the other never leaves the anchor (no hover gap, no timers). */
+.anchor { position:relative; display:inline-flex; align-items:center; }
+.anchor[data-trigger-pig] { flex-shrink:0; }
+[data-trigger] { cursor:pointer; }
+.pop { display:none; position:absolute; left:0; top:100%; z-index:5; padding-top:6px; cursor:auto; }
+.anchor[data-open="true"] .pop { display:block; }
+.card {
+  background:#fff; border:1px solid rgba(0,0,0,.12); border-radius:8px;
+  box-shadow:0 6px 20px rgba(0,0,0,.12); padding:10px 12px; width:236px;
+  box-sizing:border-box; font-size:12.5px; line-height:1.45; color:rgba(0,0,0,.75);
+  font-weight:400; text-transform:none; letter-spacing:0; text-align:left;
 }
-.q.count { text-decoration:none; }
-.row[data-allowed="true"] .q { text-decoration:none; color:rgba(0,0,0,.45); }
-.drop {
-  flex-shrink:0; background:none; border:0; cursor:pointer;
-  font-family:inherit; font-size:12px; font-weight:600;
-  color:rgba(0,0,0,.6); padding:2px 8px; border-radius:3px; white-space:nowrap;
+.card .t { font-weight:600; color:#1d1d1f; margin-bottom:2px; }
+.card .d { color:rgba(0,0,0,.55); margin-bottom:8px; }
+.card .ph { margin-bottom:2px; word-break:break-word; }
+.link {
+  display:block; background:none; border:0; padding:3px 0; cursor:pointer;
+  font:inherit; font-weight:600; color:#0A66C2; text-align:left;
 }
-.drop:hover { background:#EAF5F1; color:#2C7C63; }
-.row[data-allowed="true"] .drop { color:#2C7C63; background:#EAF5F1; }
-.scope {
-  font-size:11px; color:rgba(0,0,0,.56); padding:5px 10px 6px;
-  border-top:1px solid rgba(0,0,0,.08);
+.link.inline { display:inline; padding:0; }
+.link:hover { text-decoration:underline; }
+.step { display:flex; align-items:center; gap:8px; }
+.step button {
+  display:grid; place-items:center; width:22px; height:22px; padding:0;
+  background:none; border:1px solid rgba(0,0,0,.15); border-radius:4px;
+  font:inherit; font-weight:600; color:#1d1d1f; cursor:pointer;
 }
-.mute {
-  display:flex; align-items:center; justify-content:space-between; gap:8px;
-  font-size:12px; color:rgba(0,0,0,.7); padding:6px 10px;
-  border-top:1px solid rgba(0,0,0,.08);
+.step button:hover:not(:disabled) { background:rgba(0,0,0,.06); }
+.step button:disabled { opacity:.35; cursor:default; }
+.step b { font-weight:600; color:#1d1d1f; }
+.hint {
+  position:absolute; left:10px; top:calc(100% - 4px); z-index:4;
+  display:flex; align-items:center; gap:10px; cursor:auto;
+  background:#fff; border:1px solid rgba(0,0,0,.12); border-radius:8px;
+  box-shadow:0 6px 20px rgba(0,0,0,.12); padding:7px 10px;
+  font-size:12.5px; line-height:1.45; color:rgba(0,0,0,.75);
+  font-weight:400; text-transform:none; letter-spacing:0;
+}
+.hint .link { color:rgba(0,0,0,.5); display:inline; padding:0; font-weight:500; }
+.anchor[data-trigger-pig] [data-trigger] { border-radius:50%; display:block; }
+.anchor[data-trigger-pig][data-open="true"] [data-trigger] { box-shadow:0 0 0 3px #EFCFC8; }
+.anchor[data-open="true"] .chip { background:#E6BAB1; }
+@media (prefers-reduced-motion: reduce) {
+  .detail, .why { animation:none; }
+  .wrap { transition:none; }
 }
 `;
 
@@ -149,19 +148,44 @@ const PIG_BADGE =
   '<ellipse cx="70.5" cy="73" rx="3" ry="5" fill="#C62D18"/>' +
   '</g></svg>';
 
-/* setThreshold clamps at this ceiling, so a raise past it could never take
-   effect — rows at or above it show evidence with no dead button. */
+/* setThreshold clamps at this ceiling, so the stepper's + stops here. */
 const LIMIT_CEILING = 15;
+const LIMIT_FLOOR = 1;
+
+const cap = (w) => (w ? w[0].toUpperCase() + w.slice(1) : '');
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function linkBtn(text, cls = '') {
+  const b = el('button', ('link ' + cls).trim(), text);
+  b.type = 'button';
+  return b;
+}
+
+function card(title) {
+  const c = el('div', 'card');
+  c.appendChild(el('div', 't', title));
+  return c;
+}
 
 /**
- * Two states, one button: Show post <-> Hide post.
+ * The notice: a bar (pig, wordmark, author, chips, toggle) and, when opened,
+ * a plain list of reasons. Everything adjustable lives in hover popovers on
+ * the pig and the chips.
  *
- * Collapsed shows the bar alone — chips are the summary. Expanded shows the
- * post AND the receipt together; the chips stay in the bar in both states
- * (chips-vanish-on-expand was tried and reverted — the bar losing its tags
- * read worse than the repeat). There is no separate "Why" state.
+ * onAction(action, payload): 'toggle', 'mute' (author), 'allow' (phrase),
+ * 'setLimit' ({filterId, n}), 'openSettings', 'dismissHint'.
+ *
+ * openKey/openFocus reopen a popover after the host rebuilds the notice (the
+ * stepper changes settings, which re-judges the feed).
  */
-function buildNotice({ matches, author, collapsed = true, onAction = () => {} }) {
+function buildNotice({ matches, author, collapsed = true, showHint = false,
+  openKey = null, openFocus = null, onAction = () => {} }) {
   const host = document.createElement('div');
   host.dataset.sfNotice = 'true';
   host.dataset.collapsed = String(collapsed);
@@ -171,188 +195,239 @@ function buildNotice({ matches, author, collapsed = true, onAction = () => {} })
   style.textContent = CSS;
   root.appendChild(style);
 
-  const wrap = document.createElement('div');
-  wrap.className = 'wrap';
+  const wrap = el('div', 'wrap');
+  const anchors = [];
+  let hint = null;
+  let hintDismissed = false;
 
-  // Decorative: the wordmark beside it already names the extension, so a
-  // screen reader announcing "S" would be noise.
-  const glyph = document.createElement('span');
-  glyph.className = 'glyph';
+  function setOpen(a, on) {
+    a.dataset.open = String(on);
+    a.querySelector('[data-trigger]').setAttribute('aria-expanded', String(on));
+  }
+  function open(a) {
+    for (const o of anchors) if (o !== a && o.dataset.open === 'true') setOpen(o, false);
+    setOpen(a, true);
+  }
+  function close(a) { setOpen(a, false); }
+  function dismissHint() {
+    if (hintDismissed) return;
+    hintDismissed = true;
+    hint?.remove();
+    hint = null;
+    onAction('dismissHint');
+  }
+
+  /* trigger + popover card in one hover/focus/click unit */
+  function makeAnchor(key, trigger, cardEl, label, isPig) {
+    const a = el('span', 'anchor');
+    a.dataset.pop = key;
+    if (isPig) a.dataset.triggerPig = 'true';
+    trigger.dataset.trigger = 'true';
+    trigger.tabIndex = 0;
+    trigger.setAttribute('role', 'button');
+    trigger.setAttribute('aria-haspopup', 'dialog');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-label', label);
+    const pop = el('div', 'pop');
+    cardEl.setAttribute('role', 'dialog');
+    cardEl.setAttribute('aria-label', cardEl.firstChild.textContent);
+    pop.appendChild(cardEl);
+    a.append(trigger, pop);
+
+    const show = () => { open(a); if (isPig) dismissHint(); };
+    a.addEventListener('mouseenter', show);
+    a.addEventListener('mouseleave', () => {
+      if (!a.contains(root.activeElement)) close(a);
+    });
+    a.addEventListener('focusin', show);
+    a.addEventListener('focusout', (e) => { if (!a.contains(e.relatedTarget)) close(a); });
+    trigger.addEventListener('click', show);
+    trigger.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(); }
+    });
+    anchors.push(a);
+    return a;
+  }
+
+  // Pig: decorative unless there is an author to mute.
+  const glyph = el('span', 'glyph');
   glyph.innerHTML = PIG_BADGE; // static constant, no page data
-  glyph.setAttribute('aria-hidden', 'true');
-  wrap.appendChild(glyph);
+  if (author) {
+    const c = card(`Mute ${author}?`);
+    const d = el('div', 'd');
+    d.append('Hide every post. Can be undone in ');
+    const set = linkBtn('Settings', 'inline');
+    set.dataset.settings = 'true';
+    set.addEventListener('click', () => onAction('openSettings'));
+    d.append(set, '.');
+    c.appendChild(d);
+    const mute = linkBtn(`Mute ${author}`);
+    mute.dataset.mute = 'true';
+    mute.addEventListener('click', () => { onAction('mute', author); anchors.forEach(close); });
+    c.appendChild(mute);
+    wrap.appendChild(makeAnchor('pig', glyph, c, `Mute ${author}?`, true));
+  } else {
+    glyph.setAttribute('aria-hidden', 'true');
+    wrap.appendChild(glyph);
+  }
 
-  const mark = document.createElement('span');
-  mark.className = 'mark';
-  mark.textContent = 'Slop Filter';
-  wrap.appendChild(mark);
+  wrap.appendChild(el('span', 'mark', 'Slop Filter'));
 
   // Collapsed posts show nothing but this bar, so the notice has to say whose
-  // post it is — otherwise "Mute <author>" in the ··· menu names a stranger.
+  // post it is.
   if (author) {
-    const by = document.createElement('span');
-    by.className = 'author';
+    const by = el('span', 'author', author);
     by.dataset.author = author;
-    by.textContent = author;
     wrap.appendChild(by);
   }
 
-  // Chips stay in the bar in both states — the bar keeps its identity while
-  // the receipt repeats the tags per row.
-  const chips = document.createElement('div');
-  chips.className = 'chips';
+  const chips = el('div', 'chips');
   const seen = new Set();
   for (const m of matches) {
     if (seen.has(m.filterName)) continue;
     seen.add(m.filterName);
-    const chip = document.createElement('span');
-    chip.className = 'chip';
+    const same = matches.filter(x => x.filterName === m.filterName);
+    const chip = el('span', 'chip', m.filterName);
     chip.dataset.chip = m.filterName;
-    // A counting chip carries its count so the collapsed bar already
-    // answers half of "why" — "Emoji Overload 11".
-    // Sentence case, not caps: at 11.5px the tinted badge no longer needs
-    // uppercase to read as a label, and caps cost width the ribbon needs.
-    // The count goes in its own span so it can take tabular figures.
-    chip.textContent = m.filterName;
+    let c;
+    let label;
     if (m.counting) {
-      const n = document.createElement('span');
-      n.className = 'n';
-      n.textContent = String(m.count);
+      const n = el('span', 'n', String(m.count));
       chip.appendChild(n);
+      c = buildLimitCard(m, onAction);
+      label = `${m.filterName}, ${m.count}. Adjust limit`;
+    } else {
+      c = buildPhraseCard(m.filterName, same, onAction, () => anchors.forEach(close));
+      label = `${m.filterName}. Phrase options`;
     }
-    chips.appendChild(chip);
+    chips.appendChild(makeAnchor(m.filterName, chip, c, label, false));
   }
   wrap.appendChild(chips);
 
-  const toggle = document.createElement('button');
-  toggle.className = 'toggle';
+  const toggle = el('button', 'toggle', collapsed ? 'Show post' : 'Hide post');
   toggle.dataset.toggle = 'true';
-  toggle.textContent = collapsed ? 'Show post' : 'Hide post';
   wrap.appendChild(toggle);
 
-  // The whole bar toggles, both ways — a 40px strip is a bigger target than
-  // the text button alone. The button stays for keyboard users; its click
-  // bubbles here, so it has no listener of its own (one toggle, not two).
-  // Clicks inside the receipt never toggle: the Allow buttons live in the
-  // same .wrap and must not also hide the post.
+  // The whole bar toggles, both ways. The button stays for keyboard users; its
+  // click bubbles here (one toggle, not two). Clicks inside a popover, the
+  // hint or the reasons never toggle.
   wrap.addEventListener('click', (e) => {
-    if (e.target.closest('.detail')) return;
+    if (e.target.closest('.anchor, .hint, .detail')) return;
     onAction('toggle');
+  });
+  root.addEventListener('click', (e) => {
+    if (!e.target.closest('.anchor')) anchors.forEach(close);
+  });
+  root.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    for (const a of anchors) {
+      if (a.dataset.open !== 'true') continue;
+      const hadFocus = a.contains(root.activeElement);
+      close(a);
+      if (hadFocus) a.querySelector('[data-trigger]').focus();
+    }
   });
 
   if (!collapsed) {
-    const detail = document.createElement('div');
-    detail.className = 'detail';
-    const inner = document.createElement('div');
-    inner.className = 'inner';
-
-    const receipt = document.createElement('div');
-    receipt.className = 'receipt';
-
-    const lbl = document.createElement('div');
-    lbl.className = 'lbl';
-    const n = matches.length;
-    lbl.innerHTML = `${n} match${n === 1 ? '' : 'es'} in this post<span>Allow any that are fine</span>`;
-    receipt.appendChild(lbl);
-
+    const detail = el('div', 'detail');
+    const inner = el('div', 'inner');
+    const why = el('div', 'why');
+    const ul = document.createElement('ul');
     for (const m of matches) {
-      receipt.appendChild(m.counting ? buildCountRow(m, onAction) : buildPhraseRow(m, onAction));
+      const li = document.createElement('li');
+      li.dataset.reason = m.counting ? 'count' : 'phrase';
+      if (m.counting) {
+        li.textContent = `${cap(m.unit)}: ${m.count} (you flag at ${m.limit})`;
+      } else {
+        li.append('Phrase: ');
+        li.appendChild(el('span', 'q', `“${m.phrase}”`));
+      }
+      ul.appendChild(li);
     }
-
-    const scope = document.createElement('div');
-    scope.className = 'scope';
-    scope.textContent =
-      'Allowing a phrase allows it everywhere, from every author. Raising a limit changes it in Settings.';
-    receipt.appendChild(scope);
-
-    // Mute lives here as well as the ··· menu: testers could not find it there.
-    if (author) {
-      const mute = document.createElement('div');
-      mute.className = 'mute';
-      const q = document.createElement('span');
-      q.textContent = `Hide every post from ${author}?`;
-      mute.appendChild(q);
-      const btn = document.createElement('button');
-      btn.className = 'drop';
-      btn.dataset.mute = 'true';
-      btn.textContent = 'Mute';
-      btn.addEventListener('click', () => onAction('mute', author));
-      mute.appendChild(btn);
-      receipt.appendChild(mute);
-    }
-
-    inner.appendChild(receipt);
+    why.appendChild(ul);
+    inner.appendChild(why);
     detail.appendChild(inner);
     wrap.appendChild(detail);
   }
 
+  if (showHint && author) {
+    hint = el('div', 'hint');
+    hint.setAttribute('role', 'note');
+    hint.dataset.hint = 'true';
+    hint.appendChild(el('span', '', 'Tip: hover the pig to mute someone, or a tag to adjust it.'));
+    const got = linkBtn('Got it', 'inline');
+    got.dataset.gotit = 'true';
+    got.addEventListener('click', dismissHint);
+    hint.appendChild(got);
+    wrap.appendChild(hint);
+  }
+
   root.appendChild(wrap);
+
+  // Reopen after a rebuild, then put keyboard focus back on the pressed button.
+  host.sfRestore = () => {
+    const a = anchors.find(x => x.dataset.pop === openKey);
+    if (!a) return;
+    open(a);
+    if (openFocus) a.querySelector(`[data-step="${openFocus}"]`)?.focus();
+  };
   return host;
 }
 
-function buildRowShell(m) {
-  const row = document.createElement('div');
-  row.className = 'row';
-  row.dataset.match = m.phrase;
+function buildLimitCard(m, onAction) {
+  let limit = m.limit;
+  const c = card(m.filterName);
+  const d = el('div', 'd');
+  c.appendChild(d);
+  const step = el('div', 'step');
+  const dec = el('button', '', '−');
+  const inc = el('button', '', '+');
+  dec.type = inc.type = 'button';
+  dec.dataset.step = '-1';
+  inc.dataset.step = '1';
+  dec.setAttribute('aria-label', 'Flag at one fewer');
+  inc.setAttribute('aria-label', 'Flag at one more');
+  const val = document.createElement('b');
+  val.dataset.limit = 'true';
+  const lab = el('span', '', 'Flag at ');
+  lab.setAttribute('aria-live', 'polite');
+  lab.appendChild(val);
+  step.append(dec, lab, inc);
+  c.appendChild(step);
 
-  const cat = document.createElement('span');
-  cat.className = 'cat';
-  cat.textContent = m.filterName.toUpperCase();
-  row.appendChild(cat);
-  return row;
-}
-
-function buildPhraseRow(m, onAction) {
-  const row = buildRowShell(m);
-
-  const q = document.createElement('span');
-  q.className = 'q';
-  q.textContent = m.phrase;
-
-  const drop = document.createElement('button');
-  drop.className = 'drop';
-  drop.textContent = 'Allow';
-  drop.addEventListener('click', () => {
-    const allowed = row.dataset.allowed === 'true';
-    row.dataset.allowed = String(!allowed);
-    drop.textContent = allowed ? 'Allow' : 'Allowed · Undo';
-    onAction(allowed ? 'unallow' : 'allow', m.phrase);
-  });
-
-  row.append(q, drop);
-  return row;
-}
-
-/**
- * Counting matches aren't phrases — "11 emoji" can't go on an allowlist, only
- * the limit can move. The row states the evidence against the user's limit
- * and the button names its exact outcome: "Allow up to 11".
- */
-function buildCountRow(m, onAction) {
-  const row = buildRowShell(m);
-
-  const q = document.createElement('span');
-  q.className = 'q count';
-  q.textContent = m.phrase;
-  const small = document.createElement('small');
-  small.textContent = `your limit is ${m.limit}`;
-  q.appendChild(small);
-  row.appendChild(q);
-
-  if (m.count < LIMIT_CEILING) {
-    const drop = document.createElement('button');
-    drop.className = 'drop';
-    drop.textContent = `Allow up to ${m.count}`;
-    drop.addEventListener('click', () => {
-      const allowed = row.dataset.allowed === 'true';
-      row.dataset.allowed = String(!allowed);
-      drop.textContent = allowed ? `Allow up to ${m.count}` : `Limit raised to ${m.count} · Undo`;
-      onAction(allowed ? 'restoreLimit' : 'raiseLimit', m);
+  const paint = () => {
+    d.textContent = `Flags posts with ${limit} or more ${m.unit}.`;
+    val.textContent = String(limit);
+    dec.disabled = limit <= LIMIT_FLOOR;
+    inc.disabled = limit >= LIMIT_CEILING;
+  };
+  paint();
+  for (const b of [dec, inc]) {
+    b.addEventListener('click', () => {
+      const n = Math.max(LIMIT_FLOOR, Math.min(LIMIT_CEILING, limit + Number(b.dataset.step)));
+      if (n === limit) return;
+      limit = n;
+      paint();
+      onAction('setLimit', { filterId: m.filterId, n, focus: b.dataset.step });
     });
-    row.appendChild(drop);
   }
+  return c;
+}
 
-  return row;
+function buildPhraseCard(name, same, onAction, closeAll) {
+  const c = card(name);
+  const phrases = [...new Set(same.map(x => x.phrase))];
+  phrases.forEach((phrase, i) => {
+    const ph = el('div', 'ph');
+    ph.appendChild(el('span', 'q', `“${phrase}”`));
+    c.appendChild(ph);
+    const stop = linkBtn('Stop flagging this phrase');
+    stop.dataset.allow = phrase;
+    stop.addEventListener('click', () => { onAction('allow', phrase); closeAll(); });
+    c.appendChild(stop);
+    if (i < phrases.length - 1) stop.style.marginBottom = '6px';
+  });
+  return c;
 }
 
 if (typeof module !== 'undefined') module.exports = { buildNotice, CSS };

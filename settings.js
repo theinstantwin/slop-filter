@@ -36,6 +36,16 @@ function wirePanelSwitching(doc) {
   });
 }
 
+/* settings.html#muted opens that panel (the notice's pig popover links here). */
+function openPanelFromHash(doc, hash) {
+  const id = String(hash || '').replace(/^#/, '');
+  if (!id) return false;
+  const btn = [...doc.querySelectorAll('.navitem')].find(b => b.dataset.panel === id);
+  if (!btn) return false;
+  btn.click();
+  return true;
+}
+
 let savedTimer;
 function flashSaved(doc) {
   const s = doc.getElementById('saved');
@@ -595,7 +605,7 @@ function renderMutes(doc) {
 
   if (!st.settings.mutedAuthors.length) {
     host.appendChild(el('p', 'placeholder',
-      'Nobody is muted. Use the ··· menu on a post to mute its author.'));
+      'Nobody is muted. Hover the pig on a flagged post to mute its author.'));
     return;
   }
 
@@ -1291,7 +1301,7 @@ function renderAll(doc) {
 if (typeof module !== 'undefined') {
   module.exports = {
     st,
-    wirePanelSwitching, flashSaved, renderAll,
+    wirePanelSwitching, openPanelFromHash, flashSaved, renderAll,
     renderCats, renderCat, renderRule, wireCategoriesPanel, runTry,
     renderPromoted, wirePromotedPanel, renderLabs, wireLabsPanel, renderMutes, renderMute,
     renderTrusted, renderTrustedRow, wireTrustedAdd,
@@ -1320,6 +1330,7 @@ if (typeof chrome !== 'undefined' && chrome.storage) {
     };
 
     wirePanelSwitching(document);
+    openPanelFromHash(document, location.hash);
 
     const verEl = document.getElementById('ver');
     if (verEl && chrome.runtime && chrome.runtime.getManifest) {

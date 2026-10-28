@@ -79,7 +79,7 @@ function renderMutes(doc, settings) {
   if (!settings.mutedAuthors.length) {
     const empty = doc.createElement('div');
     empty.className = 'empty';
-    empty.textContent = 'No one muted yet. Open the Slop Filter bar on any flagged post and press Mute, or use the ··· menu on a post.';
+    empty.textContent = 'No one muted yet. Hover the pig on the Slop Filter bar of any flagged post and press Mute.';
     host.appendChild(empty);
     return;
   }
