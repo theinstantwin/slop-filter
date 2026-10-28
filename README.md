@@ -51,7 +51,7 @@ You know these posts. You've scrolled past thousands of them. You've liked a few
 - **Hustle Culture**: "5am club"
 - **Self Promotion**: "follow me for more"
 - **Sponsored**: #ad
-- **Hashtag Overload**: five or more
+- **Hashtag Overload** (off to start): five or more
 - **Emoji Overload**: five or more
 - **Humble Brag** (off to start): "humbled to announce"
 
