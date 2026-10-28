@@ -66,6 +66,13 @@ const LEGACY_DEFAULTS = {
   thresholds: { hashtagOverload: 5, emojiOverload: 5 },
 };
 
+// Phrases added to a built-in category after release. Each is added once to
+// stored settings (keyed "<catId>:<rule>" in addedRules), so a phrase the
+// user later deletes is never put back.
+const ADDED_RULES = {
+  selfPromotion: ['follow for the latest', 'follow us for'],
+};
+
 function buildDefaults(SEED) {
   return {
     schema: 2,
@@ -78,6 +85,7 @@ function buildDefaults(SEED) {
     whitelistedAuthors: [],
     paused: false,                   // popup "Pause filtering": judge and hide nothing
     noticeHintSeen: false,           // the one-time pig/tag tip, dismissed forever
+    addedRules: Object.entries(ADDED_RULES).flatMap(([id, rules]) => rules.map(r => `${id}:${r}`)),
     // No stats here. A 1.0-era { hidden, allowed } tally lived in this blob with
     // a reader and no writer — a permanent 0 indistinguishable from the filter
     // being dead. 1.2's Activity counters go under their OWN storage key so
@@ -159,6 +167,7 @@ function liftAllowedPhrases(categories, allowed) {
  */
 // Seed definitions that have since been rewritten. A stored definition still
 // equal to one of these was never edited, so it takes the new seed text.
+
 const RETIRED_DEFS = {
   selfPromotion: ['Pitching a follow instead of standing on its own'],
 };
@@ -223,6 +232,19 @@ function upgradeToV2(stored, SEED = _SEED) {
     categories,
     Array.isArray(stored.allowedPhrases) ? stored.allowedPhrases : []);
 
+
+  // One-time additions of new built-in phrases (see ADDED_RULES).
+  const addedRules = Array.isArray(stored.addedRules) ? stored.addedRules.slice() : [];
+  for (const [catId, rules] of Object.entries(ADDED_RULES)) {
+    const cat = categories.find(c => c.id === catId);
+    for (const rule of rules) {
+      const key = `${catId}:${rule}`;
+      if (addedRules.includes(key)) continue;
+      if (cat && Array.isArray(cat.rules) && !cat.rules.includes(rule)) cat.rules.push(rule);
+      addedRules.push(key);
+    }
+  }
+
   return {
     schema: 2,
     flagMode: (stored.flagMode === 'label' || stored.flagMode === 'collapse') ? stored.flagMode : 'collapse',
@@ -234,6 +256,7 @@ function upgradeToV2(stored, SEED = _SEED) {
     whitelistedAuthors: Array.isArray(stored.whitelistedAuthors) ? stored.whitelistedAuthors.slice() : [],
     paused: stored.paused === true,
     noticeHintSeen: stored.noticeHintSeen === true,
+    addedRules,
   };
 }
 

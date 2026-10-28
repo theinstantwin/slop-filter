@@ -118,7 +118,7 @@ const SEED_CATEGORIES = [
     // in the Labs followVerbAlternation pattern instead — these follow-
     // first phrases were never awkward as plain text, so they stay here.
     rules: ["follow me for", "follow for more", "follow along for", "follow along if",
-            "follow if you want", "ring the bell"] },
+            "follow if you want", "ring the bell", "follow for the latest", "follow us for"] },
   { id: 'hashtagOverload', name: 'Hashtag Overload', def: 'Too many hashtags in one post',
     on: true, counting: true, unit: 'hashtags', threshold: 5 },
   { id: 'emojiOverload', name: 'Emoji Overload', def: 'Too many emoji in one post',
