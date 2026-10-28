@@ -4,11 +4,6 @@
  * and links. The pig in the header is the status (awake, reacting, asleep).
  * Never pure white or black.
  */
-@font-face{
-  font-family:'SlopFilter Display';
-  font-weight:700;font-style:normal;font-display:swap;
-  src:url(fonts/rosario-700.woff2) format('woff2');
-}
 :root{
   --band:#F4F2EE;
   --body:#FDFCFA;
@@ -24,7 +19,6 @@
   --pig-grey:#9C9A96;
   --li-font:-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,
             "Helvetica Neue",Arial,sans-serif;
-  --display:"SlopFilter Display",Rosario,var(--li-font);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
@@ -68,7 +62,7 @@ button{font-family:inherit}
 .hsw:has(input:checked) .hsw-lbl{color:var(--blue)}
 .pig{width:100%;height:100%;display:block;overflow:visible}
 .pig .bg{transition:fill .3s}
-.wm{font:700 17px/1 var(--display);letter-spacing:.01em;color:var(--ink)}
+.wm{display:block;flex:none} /* image: no font to ship */
 .lbl{margin-left:auto;font-size:12px;color:var(--ink2)}
 
 .pig .eyes-shut,.pig .z{display:none}

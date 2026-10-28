@@ -17,9 +17,7 @@ store-assets/
 mockup-*.html
 STATUS.md
 DOM-NOTES.md
-fonts/*
-!fonts/rosario-700.woff2
-!fonts/README.md
+fonts/
 icon.png
 scratch/
 *.log
