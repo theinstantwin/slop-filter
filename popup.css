@@ -47,6 +47,8 @@ button{font-family:inherit}
 }
 .pig-btn{width:38px;height:38px;flex:none;padding:2px;display:block}
 .stack{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.stack-r{margin-left:auto;align-items:flex-end}
+.stack-r .lbl{margin-left:0}
 /* header switch: a real checkbox (role=switch) over a small track */
 .hsw{display:flex;align-items:center;gap:6px}
 .hsw-track{position:relative;display:inline-block;width:26px;height:15px}
