@@ -73,21 +73,39 @@ function settingsHash(msg) {
   return h ? '#' + h : '';
 }
 
+/** The open Settings tab as {id, windowId, url}, or undefined. */
+async function findSettingsTab(base) {
+  try {
+    if (chrome.runtime.getContexts) {
+      const ctx = (await chrome.runtime.getContexts({ contextTypes: ['TAB'] }))
+        .find(c => c.tabId >= 0 && (c.documentUrl || '').startsWith(base));
+      return ctx && { id: ctx.tabId, windowId: ctx.windowId, url: ctx.documentUrl };
+    }
+    const [tab] = await chrome.tabs.query({ url: base + '*' });
+    return tab;
+  } catch (e) { return undefined; }
+}
+
 async function onMessageHandler(msg, sender) {
   if (!msg || msg.type !== 'sf-open-settings') return;
   if (typeof chrome === 'undefined' || !chrome.runtime || sender?.id !== chrome.runtime.id) return;
   const base = chrome.runtime.getURL('settings.html');
   const url = base + settingsHash(msg);
   // Reuse an open Settings tab: changing only the #hash fires hashchange in
-  // the page, so it moves to the new spot without a reload. Querying our own
-  // extension pages by url needs no extra permission; if it fails anyway,
-  // fall back to a new tab.
-  let existing;
-  try {
-    [existing] = await chrome.tabs.query({ url: base + '*' });
-  } catch (e) { existing = undefined; }
+  // the page, so it moves to the new spot without a reload. Without the
+  // "tabs" permission, tabs.query can't read tab URLs, so the worker finds
+  // its own Settings page through runtime.getContexts (no permission needed)
+  // and only falls back to tabs.query on Chrome versions without it.
+  const existing = await findSettingsTab(base);
   if (existing) {
-    await chrome.tabs.update(existing.id, { url, active: true });
+    if (existing.url === url) {
+      // Same URL, same hash: navigating would fire no hashchange, so tell the
+      // page to jump again itself.
+      await chrome.tabs.update(existing.id, { active: true });
+      chrome.runtime.sendMessage?.({ type: 'sf-settings-hash', hash: settingsHash(msg) })?.catch?.(() => {});
+    } else {
+      await chrome.tabs.update(existing.id, { url, active: true });
+    }
     if (existing.windowId != null) chrome.windows?.update?.(existing.windowId, { focused: true });
     return;
   }
@@ -97,7 +115,9 @@ async function onMessageHandler(msg, sender) {
 // Register the handler in the browser context.
 if (typeof chrome !== 'undefined' && chrome.runtime) {
   chrome.runtime.onInstalled.addListener(onInstalledHandler);
-  chrome.runtime.onMessage.addListener(onMessageHandler);
+  // Wrapped so the listener returns undefined: no reply is sent, and a
+  // returned Promise would only hold the message port open.
+  chrome.runtime.onMessage.addListener((msg, sender) => { onMessageHandler(msg, sender); });
   chrome.runtime.onStartup?.addListener(syncIconFromStorage);
   chrome.storage?.onChanged?.addListener(onStorageChangedHandler);
   syncIconFromStorage(); // every worker wake-up, so the icon never drifts
