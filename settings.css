@@ -1,6 +1,5 @@
-/*
- * Tokens are contrast-checked against WCAG 2.2 AA. Do not lighten --text-3.
- */
+/* Color tokens are contrast-checked against WCAG 2.2 AA (ratios on white,
+   noted inline). Don't lighten --text-3: it is at the AA floor. */
 :root {
   --bg: #fff;
   --bg-subtle: #f7f7f8;
@@ -132,7 +131,7 @@ input[type=text]:focus-visible, textarea:focus-visible, select:focus-visible {
 }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-/* ---- the top add row: one field, category picked from a dropdown ---- */
+/* ---- top add row: one field, category picked from a dropdown ---- */
 .addrow {
   display: flex; gap: 8px; align-items: center;
   max-width: 720px; margin-bottom: 22px;
@@ -155,21 +154,17 @@ input[type=text]:focus-visible, textarea:focus-visible, select:focus-visible {
 .cat-head:hover { background: var(--bg-subtle); }
 .cat-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-/* Disclosure arrow. Kept deliberately light: it is a hint, not a control
-   competing with the category name. Aligned to the title line rather than
-   centred on the two-line block, and rotated about its own centre so it
-   pivots in place instead of swinging. */
+/* Disclosure arrow, kept light so it doesn't compete with the category name. */
 .caret {
   width: 12px; height: 12px; flex: none; margin-left: 2px;
   color: var(--text-3); opacity: .65;
-  /* Slight overshoot past 90° then back — gives the rotation a flick. */
+  /* Overshoots 90 degrees slightly, then settles. */
   transition: transform .34s cubic-bezier(.34, 1.4, .5, 1), opacity .18s ease-out;
 }
 .cat-head:hover .caret { opacity: 1; }
 .cat.open .caret { transform: rotate(90deg); opacity: 1; }
 
-/* Name and definition share one line, separated by a floating bullet. Halves
-   the row height and gives the caret a single baseline to sit on. */
+/* Name and definition share one line, separated by a bullet. */
 .cat-id {
   min-width: 0; flex: 1;
   display: flex; align-items: baseline; gap: 8px;
@@ -181,15 +176,14 @@ input[type=text]:focus-visible, textarea:focus-visible, select:focus-visible {
 }
 .cat-def::before { content: '•'; margin-right: 8px; color: var(--border-strong); }
 
-/* Inline definition editor — same metrics as the text it replaces, so the
-   title line does not reflow when it appears. */
+/* Inline editor: same metrics as the text it replaces, so the title line
+   doesn't reflow. */
 input[type=text].def-inline {
   flex: 1; min-width: 0; font-size: 12px;
   padding: 2px 6px; margin: -3px 0;
   border-radius: var(--r-sm);
 }
-/* Names are short and definitions run long, so the name takes a fixed slot
-   and the definition gets the remaining width. */
+/* Names are short and definitions long: fixed name slot, definition gets the rest. */
 input[type=text].name-inline {
   flex: none; width: 180px;
   font-size: 13px; font-weight: 550; color: var(--text);
@@ -212,8 +206,7 @@ input[type=text].name-inline {
 .cat-action:hover { background: var(--bg-sink); color: var(--text); }
 .cat-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-/* Armed delete — the button states what it is about to destroy, so the
-   confirmation lives where the click does rather than in a modal. */
+/* Armed delete: the button names what it will destroy, in place of a modal. */
 .cat-action.danger,
 .cat-action.danger:hover {
   color: var(--danger);
@@ -221,8 +214,7 @@ input[type=text].name-inline {
   font-weight: 550;
 }
 
-/* Row actions appear on hover so eight rows aren't lined with buttons at rest.
-   Kept in the layout (opacity, not display) so the toggle never shifts. */
+/* Row actions show on hover. opacity, not display, so the toggle never shifts. */
 .cat-action { opacity: 0; transition: opacity .12s ease; }
 .cat-head:hover .cat-action,
 .cat-action:focus-visible,
@@ -243,7 +235,7 @@ input[type=text].name-inline {
 .sw input:checked + span { background: var(--accent); }
 .sw input:checked + span::after { transform: translateX(12px); }
 .sw input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* Visible state beside every switch: testers could not tell what the bare toggle meant */
+/* A visible On/Off beside every switch; the bare toggle was ambiguous. */
 .sw { margin-left: 32px; }
 .sw::before {
   content: 'Off'; position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%);
@@ -251,30 +243,25 @@ input[type=text].name-inline {
 }
 .sw:has(input:checked)::before { content: 'On'; color: var(--accent); }
 
-/* Structural toggle rows (Promoted content panel) — category row metrics,
-   minus the accordion: no caret, no expand, nothing inside but the toggle.
-   Flush left like the muted-people rows, since no caret rows sit nearby. */
+/* Static toggle rows (Promoted content, Labs): category row metrics without
+   the accordion. */
 .cat.static .cat-head { cursor: default; }
 .cat.static .cat-head:hover { background: none; }
 .cat.static:first-of-type { border-top: 1px solid var(--border); }
 
-/* expanded body */
-/* Accordion. `display:none`→`block` snaps, and `height:auto` is not animatable,
-   so the row is a 0fr→1fr grid — it eases to whatever height the content
-   actually is, no hardcoded pixel guess that breaks when phrases wrap. The
-   inner div owns overflow:hidden; padding lives inside it so it collapses too. */
+/* Accordion body. height:auto can't animate, so the row is a 0fr to 1fr grid
+   that eases to the content's real height. The inner div owns overflow:hidden
+   and the padding, so the padding collapses too. */
 .cat-body {
   display: grid; grid-template-rows: minmax(0, 0fr);
   overflow: hidden;
-  /* Ease-out-expo. Most of the distance is covered in the first third, then it
-     settles — reads as instant response rather than a panel being winched open.
-     `ease-out` is the browser default and feels sluggish by comparison. */
+  /* Ease-out-expo: most of the distance is covered early, which feels more
+     responsive than the default ease-out. */
   transition: grid-template-rows .34s cubic-bezier(.16, 1, .3, 1);
 }
-/* max-content, not 1fr. `1fr` distributes FREE space, and inside an auto-height
-   parent there is none — it resolves to the first line box and clips the rest.
-   (Requires overflow:hidden on this grid, not on the inner item: on the item it
-   creates a formatting context that reports zero height back to the grid.) */
+/* max-content, not 1fr: 1fr distributes free space, and an auto-height parent
+   has none, so it would clip after the first line. overflow:hidden must be on
+   this grid, not the inner item, which would report zero height to the grid. */
 .cat.open .cat-body { grid-template-rows: minmax(0, max-content); }
 
 .cat-body-inner { min-height: 0; padding: 0 4px 18px 26px; }
@@ -283,22 +270,25 @@ input[type=text].name-inline {
   .cat-body, .caret { transition: none; }
 }
 
-/* padding, not margin — margins collapse out of the animated grid row */
+/* padding, not margin: margins collapse out of the animated grid row */
 .field { margin-bottom: 0; padding-top: 14px; padding-bottom: 0; }
 .field:last-child { margin-bottom: 0; }
-/* Sentence case, not uppercase-letterspaced — two shouted labels in a panel
-   with two controls competed with the category name for attention. */
+/* Sentence case: uppercase labels competed with the category name. */
 .field-label {
   display: block; font-size: 11.5px; font-weight: 600;
   color: var(--text-3); margin-bottom: 7px;
 }
 .def-input { width: 100%; }
 .field-hint { font-size: 11.5px; color: var(--text-3); margin-top: 6px; line-height: 1.45; }
+.inline-saved {
+  font-size: 11.5px; font-weight: 600; color: var(--accent); margin-left: 4px;
+  opacity: 0; transition: opacity .15s;
+}
+.inline-saved.on { opacity: 1; }
 
 /* phrase chips */
 .rules { display: flex; flex-wrap: wrap; gap: 6px; }
-/* line-height 1 clipped descenders (the g in "rise and grind") against
-   .rule-text's overflow:hidden. 1.4 gives them room. */
+/* line-height 1.4: 1 clips descenders against .rule-text's overflow:hidden. */
 .rule {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 5px 7px 5px 10px; border-radius: 999px;
@@ -308,10 +298,8 @@ input[type=text].name-inline {
   font-size: 12.5px; line-height: 1.4; max-width: 100%;
 }
 .rule:hover { border-color: color-mix(in srgb, var(--danger) 55%, transparent); }
-/* Built-in template. The prose explaining these is gone, so the chip says it
-   itself: dashed border, and a small lock glyph where the × would be. */
-/* Built-in template: neutral, so "you can edit this" vs "you can't" reads at
-   a glance without needing the lock glyph to carry it alone. */
+/* Built-in template: dashed and neutral, with a lock where the x would be, so
+   "can't edit" reads at a glance. */
 .rule.locked {
   border: 1px dashed var(--border-strong); background: var(--bg-subtle);
   padding-right: 8px; color: var(--text-2); cursor: help;
@@ -332,10 +320,10 @@ input[type=text].name-inline {
 .rule-label { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; min-width: 0; }
 .rule-label input { margin: 0; width: 14px; height: 14px; accent-color: var(--accent); flex: none; }
 .rule-label input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* Unchecked: kept, not flagging. Dashed and grey, like the ghost chip. */
+/* Unchecked: kept but not flagging. */
 .rule.u { border: 1px dashed var(--border-strong); background: none; color: var(--text-3); }
 .rule.u:hover { border-color: var(--text-3); }
-/* Deep-link landing (notice's "Change in Settings"). */
+/* Highlight for a deep-link landing (the notice's "Change in Settings"). */
 @keyframes sf-hl { from { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent); } to { box-shadow: 0 0 0 4px transparent; } }
 .hl { animation: sf-hl 2.2s ease-out; border-radius: 8px; }
 .rule.hl { border-radius: 999px; }
@@ -352,8 +340,7 @@ input[type=text].name-inline {
 .rule:hover .rule-x { opacity: 1; }
 .rule-x:hover { background: var(--bg-sink); color: var(--danger); }
 .rule-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; opacity: 1; }
-/* Ghost chip — dashed and neutral so it reads as "add one" rather than as a
-   phrase that is currently filtering. Same pill metrics as a real chip. */
+/* Ghost chip: dashed and neutral so it reads as "add one", not an active phrase. */
 .rule.ghost,
 .rule.ghost:hover {
   border: 1px dashed var(--border-strong);
@@ -398,7 +385,7 @@ input[type=text].ghost-input {
 }
 .newcat button:hover { background: var(--bg-subtle); color: var(--text); }
 
-/* ---- try-a-post: now a section at the foot of the column, not a rail ---- */
+/* ---- try a post ---- */
 .tryblock {
   max-width: 720px; margin-top: 34px; padding-top: 22px;
   border-top: 1px solid var(--border);
@@ -424,14 +411,12 @@ input[type=text].ghost-input {
   display: flex; align-items: baseline; gap: 12px;
   padding: 4px 2px;
 }
-/* The category is context for the match, not the headline — quiet label,
-   not a stack of solid red blocks running down the column. */
+/* The category is context for the match, so a quiet label. */
 .v-cat {
   font-size: 11px; color: var(--text-3); flex: none;
   min-width: 108px; text-align: right;
 }
-/* Highlighted, not struck through. A match is text the filter FOUND — strike-
-   through reads as "deleted", which is the opposite of what happened. */
+/* Highlighted, not struck through: strikethrough reads as deleted. */
 .v-phrase {
   font-size: 12px; color: var(--text);
   background: color-mix(in srgb, var(--danger) 14%, transparent);
@@ -471,8 +456,7 @@ input[type=text].ghost-input {
 .pstat-n { font-family: var(--mono); font-size: 12px; color: var(--text-2);
   font-variant-numeric: tabular-nums; min-width: 36px; text-align: right; }
 
-/* A phrase you keep reading past is a phrase that is probably wrong. This is
-   the one signal the cut "corrected" count existed to surface. */
+/* A phrase the reader keeps reading past is probably too broad. */
 .pstat.misfiring { background: color-mix(in srgb, var(--danger) 5%, transparent); }
 .pstat-warn { font-size: 11px; color: var(--danger); flex: none; }
 
@@ -501,8 +485,7 @@ input[type=text].ghost-input {
 .drop-in b { font-size: 12.5px; font-weight: 550; }
 .drop-in span { font-size: 12px; color: var(--text-3); }
 
-/* Restoring overwrites everything, so it states what it will do and what it
-   will replace before the button appears — not a modal after the fact. */
+/* Restore is destructive, so the preview states what it replaces before the button. */
 .rpv {
   max-width: 720px; margin-top: 16px; padding: 16px;
   border: 1px solid var(--border); border-radius: var(--r);
@@ -529,15 +512,14 @@ input[type=text].ghost-input {
 .mute-name.gone { font-weight: 400; color: var(--text-3); }
 .mute-note { font-size: 12px; color: var(--text-3); }
 
-/* Unmute stays hidden until hover, like the category row actions. Undo does
-   not — a row that just changed under you has to advertise the way back. */
+/* Unmute shows on hover like category actions. Undo is always visible so a
+   changed row advertises the way back. */
 .mute .cat-action { opacity: 0; }
 .mute:hover .cat-action,
 .mute .cat-action:focus-visible,
 .mute.undone .cat-action { opacity: 1; }
 
-/* ---- trusted people: reuses .mute for list rows; own styling for the
-   add-by-name input row and its inline duplicate-name error ---- */
+/* ---- trusted people: list rows reuse .mute; this styles the add row and its error ---- */
 .trust-add { display: flex; gap: 8px; max-width: 480px; margin: 4px 0 8px; }
 .trust-add input { flex: 1; min-width: 0; padding: 7px 10px; font-size: 13px;
   border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }

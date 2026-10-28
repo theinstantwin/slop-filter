@@ -1,23 +1,16 @@
 /**
- * Options page, Backup panel. Classic script loaded by settings.html after settings.js,
- * so `st`, `el` and the other panels' functions are shared page globals. Under
- * Node, settings.js publishes them on globalThis before requiring this file.
+ * Options page, Backup panel: export, validate, and restore. A classic script
+ * loaded after settings.js, so `st`, `el` and the other panels' functions are
+ * page globals (under Node, settings.js publishes them on globalThis first).
+ *
+ * Export merges settings and counters (two storage keys) into one file. Restore
+ * splits them again: applyBackup returns { settings, counters? } and the caller
+ * decides where each half is written. Two file kinds exist ('slop-filter-backup'
+ * and 'slop-filter-rules') so a categories-only file can't be mistaken for a
+ * full backup.
  */
-/* ---- Backup panel (Task 11) ----
-   Export takes settings/counters as
-   parameters (st.settings and st.counters, sfCounters's shape) and stamps
-   `exported` at click time.
 
-   Export MERGES the two storage keys — slopFilterSettings and sfCounters
-   — into one file; restore SPLITS them back apart (PRD): applyBackup()
-   returns { settings, counters? }, and only the caller (the confirm-button
-   handler below) decides where each half gets written.
-
-   The 'rules' kind's original name was 'slop-filter-backup' for both kinds —
-   that collapsed the distinction the PRD wants restore to draw between "a
-   full backup" and "just categories/rules," so the two kinds now carry
-   different `kind` strings and validateBackup only accepts those two exact
-   values. */
+/** Builds the export object; `kind` is 'all' or 'rules' (categories and ad flags only). */
 function buildExport(kind, settings, counters) {
   const base = {
     kind: kind === 'rules' ? 'slop-filter-rules' : 'slop-filter-backup',
@@ -31,16 +24,9 @@ function buildExport(kind, settings, counters) {
   return { ...base, mutedAuthors: settings.mutedAuthors, whitelistedAuthors: settings.whitelistedAuthors, counters };
 }
 
-/* Three distinguishable user-facing errors, per the PRD: invalid JSON is
-   caught by the caller (JSON.parse throws before this is ever reached) and
-   gets its own message there; this function distinguishes the other two —
-   an unrecognized/missing `kind` vs. a recognized kind whose shape is wrong
-   (categories not an array). */
-/* A category is well-formed if it has a string name AND either a rules array
-   of strings (a phrase-matching category) or counting:true with a numeric
-   threshold (a counting category, e.g. hashtag overload). Anything else —
-   {} being the minimal failing case — is rejected here rather than let
-   through to wedge the Categories panel on render. */
+/* A category is well-formed with a string name plus a rules array of strings,
+   counting:true with a numeric threshold, or labs:true. Anything else is
+   rejected here instead of breaking the Categories panel on render. */
 function isValidBackupCategory(cat) {
   if (!cat || typeof cat !== 'object') return false;
   if (typeof cat.name !== 'string' || !cat.name) return false;
@@ -49,6 +35,11 @@ function isValidBackupCategory(cat) {
   return Array.isArray(cat.rules) && cat.rules.every(r => typeof r === 'string');
 }
 
+/**
+ * Checks a parsed backup file. Invalid JSON is the caller's case; this tells an
+ * unrecognized `kind` from a recognized kind with a malformed shape.
+ * Returns { ok: true, kind: 'all' | 'rules' } or { ok: false, error }.
+ */
 function validateBackup(parsed) {
   if (!parsed || typeof parsed !== 'object') {
     return { ok: false, error: 'That is not a Slop Filter backup file.' };
@@ -69,12 +60,11 @@ function validateBackup(parsed) {
   return { ok: true, kind: parsed.kind === 'slop-filter-rules' ? 'rules' : 'all' };
 }
 
-/* Full replace of categories/flags always; mutes and counters only for a
-   kind:'all' backup (a rules-only file was never asked to carry them, and
-   the PRD requires rules-only restore to leave both untouched). `schema: 2`
-   is preserved explicitly and the result is run through migrate() — cheap
-   belt-and-braces so a restored file exported from a future or past minor
-   version still normalizes the same way a freshly loaded blob would. */
+/**
+ * Replaces categories and ad flags always; people lists and counters only from
+ * a full backup, so a rules-only restore leaves them untouched. The result goes
+ * through migrate() so a file from another version normalizes like a loaded blob.
+ */
 function applyBackup(parsed, currentSettings) {
   const merged = {
     ...currentSettings,
@@ -96,6 +86,7 @@ function applyBackup(parsed, currentSettings) {
   return { settings };
 }
 
+/** Downloads `obj` as a JSON file. */
 function download(name, obj) {
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
   const a = el('a');
@@ -166,11 +157,11 @@ function readBackupFile(doc, file) {
   fr.readAsText(file);
 }
 
-/* States what the file contains and how many current categories it will
-   replace, in a red warning, before offering the button — restoring is
-   destructive, so that has to be legible before the click, not after. The
-   write itself only happens in the confirm handler below; Cancel discards
-   the preview with no storage interaction at all. */
+/*
+ * Shows what the file contains and warns what it will replace before offering
+ * the button, since restore is destructive. Nothing is written until the
+ * confirm handler runs; Cancel discards the preview.
+ */
 function showRestorePreview(doc, data, kind, filename) {
   const out = doc.getElementById('restore-preview');
   out.textContent = '';
@@ -229,7 +220,7 @@ function showRestorePreview(doc, data, kind, filename) {
   out.appendChild(box);
 }
 
-function renderBackup() {}
+function renderBackup() {} // nothing to render; renderAll calls it for symmetry
 
 if (typeof module !== 'undefined') {
   Object.assign(module.exports, {

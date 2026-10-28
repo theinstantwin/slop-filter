@@ -1,29 +1,22 @@
 /**
- * Options page, Categories, Labs and Promoted panels. Classic script loaded by settings.html after settings.js,
- * so `st`, `el` and the other panels' functions are shared page globals. Under
- * Node, settings.js publishes them on globalThis before requiring this file.
+ * Options page, Categories, Labs and Promoted content panels. A classic script
+ * loaded after settings.js, so `st`, `el` and the other panels' functions are
+ * page globals (under Node, settings.js publishes them on globalThis first).
+ *
+ * Every mutation is `st.settings = st.<helper>(st.settings, ...)` followed by
+ * st.persist(), and renderers read st.settings fresh, so the page never hand-edits
+ * a category or rules array.
  */
-// ---- Categories panel (Task 8) ----
-//
-// The array under render IS storage: every mutation is
-// `st.settings = <Task 3 helper>(st.settings, ...)` followed by `st.persist()`,
-// and renderCats() always reads `st.settings.categories` fresh. Nothing in
-// this file hand-edits a category or rules array.
-//
-// Accordion open/closed state is UI-only — it must never round-trip through
-// chrome.storage, so it lives in `st.catOpen`, a page-local Set of category
-// ids, never on the stored category objects themselves.
+
+// Accordion open state is UI-only and never stored: a page-local Set of ids.
 st.catOpen = new Set();
 
-// A new category starts as a page-local draft, NOT a stored one — "+ New
-// category" must not write to chrome.storage at all until the draft gains
-// real content (a committed name/def, or a first phrase). Closing the tab
-// mid-edit on an unsaved draft leaves storage untouched, same as it always
-// was. At most one draft exists at a time (a second click while one is
-// already open just re-focuses/re-creates it).
+// "+ New category" creates a page-local draft, not a stored category. Nothing is
+// written until the draft gains content (a committed name or definition, or a
+// first phrase), so abandoning it leaves storage untouched. One draft at a time.
 st.newCatDraft = null;
 
-/* ---- the top add row ---- */
+// Fills the top "add a phrase" category picker, keeping the current choice.
 function syncAddCats(doc) {
   const sel = doc.getElementById('top-add-cat');
   const keep = sel.value;
@@ -60,13 +53,11 @@ function wireTopAdd(doc) {
   topAdd.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); });
 }
 
-/* ---- categories ---- */
 function renderCats(doc) {
   const host = doc.getElementById('cats');
   host.textContent = '';
   for (const cat of st.settings.categories.filter(c => !c.labs)) host.appendChild(renderCat(doc, cat));
-  // The unsaved draft (if any) renders last, same slot "+ New category" would
-  // have appended it to were it a real, stored category.
+  // The unsaved draft renders last, where a stored new category would land.
   if (st.newCatDraft) host.appendChild(renderCat(doc, st.newCatDraft, { draft: true }));
   syncAddCats(doc);
 }
@@ -104,9 +95,8 @@ function renderCat(doc, cat, { draft = false } = {}) {
     head.appendChild(meta);
   }
 
-  /* Edit swaps the title line for inputs, in place — the accordion stays
-     shut, since it holds phrases. Custom categories get their name too;
-     built-in names are fixed, so those edit the definition only. */
+  // Edit swaps the title line for inputs in place without opening the accordion.
+  // Custom categories edit name and definition; built-ins edit the definition only.
   const edit = el('button', 'cat-action', 'Edit');
   let closing = false;
 
@@ -119,13 +109,9 @@ function renderCat(doc, cat, { draft = false } = {}) {
       closing = true;
 
       if (draft) {
-        // The draft is page-local — it has never been written to storage.
-        // Only a commit with real content (a non-empty name or def) turns it
-        // into an actual stored category, via upsertCustomCategory with no
-        // `id`, so the helper mints the real id. Abandoning it (Escape, or a
-        // blur/Enter with both fields still empty) just drops the draft —
-        // no storage read, write, or delete ever happens for a category that
-        // was never really created.
+        // Only a commit with a non-empty name or definition makes the draft a
+        // stored category (no `id`, so upsertCustomCategory mints one).
+        // Otherwise it is dropped with no storage access.
         const name = nameIn.value.trim();
         const def = defIn.value.trim();
         if (commit && (name || def)) {
@@ -144,12 +130,9 @@ function renderCat(doc, cat, { draft = false } = {}) {
         const name = nameIn ? (nameIn.value.trim() || 'Untitled category') : cat.name;
         const def = defIn.value.trim();
         if (cat.custom) {
-          // upsertCustomCategory covers both name and def for custom categories.
           st.settings = st.upsertCustomCategory(st.settings, { id: cat.id, name, def });
         } else {
-          // Built-ins have no name field (nameIn is null above) and can't go
-          // through upsertCustomCategory (custom-only), so their definition
-          // edit uses the sibling built-in-safe helper.
+          // Built-ins have no name field and upsertCustomCategory is custom-only.
           st.settings = st.setCategoryDef(st.settings, cat.id, def);
         }
         await st.persist();
@@ -165,19 +148,15 @@ function renderCat(doc, cat, { draft = false } = {}) {
       i.placeholder = ph;
       i.setAttribute('aria-label', label);
       i.addEventListener('click', ev => ev.stopPropagation());
-      /* stopPropagation on keydown too: Enter/Space on a focused child
-         otherwise reaches the header's own key handler and toggles the
-         accordion. */
+      // Stop keydown too, or Enter/Space would reach the header and toggle the accordion.
       i.addEventListener('keydown', ev => {
         ev.stopPropagation();
         if (ev.key === 'Enter') { ev.preventDefault(); done(true); }
         if (ev.key === 'Escape') { ev.preventDefault(); done(false); }
       });
-      /* Tabbing between the two fields is not leaving the editor.
-         relatedTarget names the element receiving focus and is correct
-         synchronously — during a real Tab, document.activeElement is still
-         <body> here, which made a setTimeout check tear the editor down
-         mid-tab. Keep this pattern EXACTLY. */
+      // Tabbing between the two fields doesn't leave the editor. Use
+      // relatedTarget: during a real Tab, document.activeElement is still <body>
+      // here, so a deferred activeElement check closes the editor mid-tab.
       i.addEventListener('blur', ev => {
         if (ev.relatedTarget?.classList.contains('def-inline')) return;
         done(true);
@@ -202,9 +181,7 @@ function renderCat(doc, cat, { draft = false } = {}) {
   wrap.startEdit = startEdit;
   head.appendChild(edit);
 
-  /* No Rename button — Edit covers the name for custom categories. No
-     Delete for an unsaved draft — it was never created, so there is nothing
-     to delete; abandoning the editor (blur/Escape) is how it goes away. */
+  // No Delete on an unsaved draft: abandoning the editor discards it.
   if (cat.custom && !draft) {
     const del = el('button', 'cat-action', 'Delete');
     const remove = async () => {
@@ -214,8 +191,7 @@ function renderCat(doc, cat, { draft = false } = {}) {
       renderCats(doc);
       runTry(doc);
     };
-    /* An empty category holds nothing worth confirming. One with phrases in
-       it asks first, inline — the button becomes the confirmation. */
+    // An empty category deletes at once; one with phrases confirms inline.
     del.addEventListener('click', e => {
       e.stopPropagation();
       if (!cat.rules.length) return remove();
@@ -266,7 +242,6 @@ function renderCat(doc, cat, { draft = false } = {}) {
   });
   wrap.appendChild(head);
 
-  /* ---- expanded ---- */
   const bodyOuter = el('div', 'cat-body');
   const body = el('div', 'cat-body-inner');
   bodyOuter.appendChild(body);
@@ -286,16 +261,25 @@ function renderCat(doc, cat, { draft = false } = {}) {
     thr.addEventListener('click', async e => {
       const b = e.target.closest('button');
       if (!b) return;
-      const next = st.clampThreshold(cat.threshold + Number(b.dataset.step));
-      st.settings = st.setThreshold(st.settings, cat.id, next);
+      // Step from the live value; the rendered one may be stale.
+      const current = st.settings.categories.find(c => c.id === cat.id).threshold;
+      st.settings = st.setThreshold(st.settings, cat.id, st.clampThreshold(current + Number(b.dataset.step)));
       const updated = st.settings.categories.find(c => c.id === cat.id);
       thr.querySelector('.val').textContent = updated.threshold + '+';
       wrap.querySelector('.cat-meta .n').textContent = `${updated.threshold}+ ${updated.unit}`;
       await st.persist();
+      // The sidebar's "Saved" may be off-screen, so confirm here too.
+      saved.classList.add('on');
+      clearTimeout(savedTimer);
+      savedTimer = setTimeout(() => saved.classList.remove('on'), 1600);
       runTry(doc);
     });
+    const saved = el('span', 'inline-saved', 'Saved');
+    saved.setAttribute('role', 'status');
+    let savedTimer;
     row.appendChild(thr);
     row.appendChild(el('span', 'field-hint', `${cat.unit} in a single post`));
+    row.appendChild(saved);
     f.appendChild(row);
     body.appendChild(f);
   } else {
@@ -305,8 +289,7 @@ function renderCat(doc, cat, { draft = false } = {}) {
     const rules = el('div', 'rules');
     for (const r of cat.rules) rules.appendChild(renderRule(doc, cat, r));
 
-    /* Ghost chip: adds a phrase without going back to the field at the top
-       of the page. Sits last so the list reads as "…these, and one more". */
+    // Ghost chip: adds a phrase in place, last in the list.
     const ghost = el('button', 'rule ghost');
     ghost.type = 'button';
     ghost.innerHTML = '<span class="rule-text">+ Add phrase</span>';
@@ -322,10 +305,8 @@ function renderCat(doc, cat, { draft = false } = {}) {
         if (!v) return close();
 
         if (draft) {
-          // A first phrase is real content too — it turns the draft into an
-          // actual stored category in the same breath the rule is added,
-          // rather than persisting an empty category and then a rule onto
-          // it as two separate writes.
+          // A first phrase also makes the draft real, in one write rather than
+          // an empty category followed by a rule.
           st.settings = st.upsertCustomCategory(st.settings, { name: cat.name, def: cat.def });
           const created = st.settings.categories[st.settings.categories.length - 1];
           st.settings = st.addRule(st.settings, created.id, v);
@@ -370,8 +351,8 @@ function renderRule(doc, cat, txt) {
   const r = el('div', 'rule' + (shape ? ' locked' : '') + (isOff ? ' u' : ''));
   r.dataset.rule = txt;
 
-  // The label wraps the checkbox, so clicking the phrase toggles it. Checked
-  // means flagging; unchecked keeps the phrase but stops it firing.
+  // The label wraps the checkbox, so clicking the phrase toggles it. Unchecked
+  // keeps the phrase but stops it firing.
   const lab = el('label', 'rule-label');
   const cb = doc.createElement('input');
   cb.type = 'checkbox';
@@ -386,7 +367,7 @@ function renderRule(doc, cat, txt) {
 
   const label = el('span', 'rule-text');
   if (shape) {
-    // render blanks as visible placeholders so the template reads as a sentence
+    // Show blanks as visible placeholders so the template reads as a sentence.
     txt.split(st.BLANK).forEach((part, i) => {
       if (i) label.appendChild(el('span', 'fill', 'anything'));
       label.appendChild(doc.createTextNode(part));
@@ -398,7 +379,7 @@ function renderRule(doc, cat, txt) {
   r.appendChild(lab);
 
   if (shape) {
-    // Custom tooltip (CSS, data-tip): the native title tooltip waits ~1s to appear.
+    // A CSS tooltip (data-tip); native title tooltips wait about a second.
     r.dataset.tip = 'Catches every version of this line, whatever fills the blanks. It’s built in, so you can switch it off but not edit it.';
     r.setAttribute('aria-description', r.dataset.tip);
     const lock = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -412,7 +393,6 @@ function renderRule(doc, cat, txt) {
     const x = el('button', 'rule-x', '×');
     x.setAttribute('aria-label', 'Remove "' + txt + '"');
     x.addEventListener('click', async () => {
-      // No empty state needed — the ghost chip is always the last item.
       st.settings = st.removeRule(st.settings, cat.id, txt);
       await st.persist();
       r.remove();
@@ -423,20 +403,11 @@ function renderRule(doc, cat, txt) {
   return r;
 }
 
-/* ---- new category ----
-   Creates the row empty and drops straight into the inline editor with the
-   name focused — same interaction as renaming, so there is one thing to
-   learn. The row is a page-local draft (`st.newCatDraft`), not a stored
-   category: nothing is written to chrome.storage here. `renderCat`'s
-   `done(commit)` (draft branch, above) is the only place a draft turns into
-   a real, persisted category — on a commit with a non-empty name or def —
-   or quietly disappears on abandonment, with zero storage interaction
-   either way. The ghost-chip add-phrase path (also above) covers the case
-   where the first real content is a phrase rather than a name/def. */
+// Starts a draft category and opens the inline editor on its name. Storage is
+// untouched here; renderCat's done() and the ghost-chip path persist it.
 function wireNewCategory(doc) {
   doc.getElementById('new-cat').addEventListener('click', () => {
-    // One draft at a time: a stray click while one is already open just
-    // re-focuses it rather than creating a second.
+    // A second click re-focuses the open draft instead of creating another.
     if (!st.newCatDraft) {
       st.newCatDraft = { id: '__draft__', name: '', def: '', on: true, custom: true, rules: [] };
     }
@@ -448,7 +419,7 @@ function wireNewCategory(doc) {
   });
 }
 
-/* ---- try a post: findMatches against st.settings.categories, live ---- */
+/** The "Try a post" box: runs findMatches over the text against the current categories, live. */
 function runTry(doc) {
   const text = doc.getElementById('try').value;
   const out = doc.getElementById('verdict');
@@ -478,13 +449,11 @@ function wireCategoriesPanel(doc) {
   runTry(doc);
 }
 
-/* ---- Labs panel ----
-   Same toggle-row shape as Promoted content's static rows, but data-driven
-   over st.settings.categories instead of two fixed ids — a Labs entry is a
-   category object with `labs: true` and no `rules` array (see filters.js's
-   LABS_PATTERNS).
-   Every mutation goes through the same setCategoryOn() + st.persist() path
-   any other category toggle uses — nothing Labs-specific in storage.js. */
+/**
+ * Labs panel: one toggle row per category with `labs: true` (no rules array;
+ * the pattern is in filters.js LABS_PATTERNS). Toggles use the same
+ * setCategoryOn path as any other category.
+ */
 function renderLabs(doc) {
   const host = doc.getElementById('labs-rows');
   host.textContent = '';
@@ -523,11 +492,10 @@ function wireLabsPanel(doc) {
   });
 }
 
-/* ---- Promoted content panel ----
-   The two rows are static markup already in settings.html (Task 7, copy
-   locked) — nothing here builds DOM, it only reads
-   st.settings.hidePromoted/hideBoosted into the checkboxes on render and
-   writes them back through the Task 9 copy-on-write helpers on change. */
+/**
+ * Promoted content panel. The two rows are static markup in settings.html;
+ * this only syncs hidePromoted/hideBoosted to the checkboxes and back.
+ */
 function renderPromoted(doc) {
   const promotedBox = doc.getElementById('promoted-toggle');
   const boostedBox = doc.getElementById('boosted-toggle');

@@ -1,20 +1,17 @@
 /**
- * Options page script. settings.html loads filters.js, storage.js and
- * counters.js first; their API is on globalThis.SlopFilter, or required under
- * `node --test`. `st` also holds this page's own state — `st.settings` (the
- * loaded blob) and `st.persist()` (save + flashSaved). No dom.js: nothing on
- * this page reads LinkedIn markup.
+ * Options page core: shared state, helpers, deep links, and cross-panel
+ * rendering. Loads after filters.js, storage.js and counters.js (globalThis.
+ * SlopFilter, or required under Node). `st` holds their API plus the page
+ * state: `st.settings` (the loaded blob) and `st.persist()` (save + flash).
  *
- * The page is split by panel into settings-categories/people/activity/backup
- * .js and settings-boot.js, all classic scripts in one scope. This file loads
- * first and owns the shared helpers; the boot file loads last, once every
- * panel function exists.
+ * The panels are separate classic scripts in one scope
+ * (settings-categories/people/activity/backup.js); settings-boot.js loads last,
+ * once every panel function exists.
  */
 const st = typeof module !== 'undefined'
   ? { ...module.require('./filters.js'), ...module.require('./storage.js'), ...module.require('./counters.js') }
   : { ...globalThis.SlopFilter };
 
-/* ---- sidebar panel switching ---- */
 function wirePanelSwitching(doc) {
   doc.querySelectorAll('.navitem').forEach(b => {
     b.addEventListener('click', () => {
@@ -25,12 +22,12 @@ function wirePanelSwitching(doc) {
   });
 }
 
-/* Deep links. The notice's "Change in Settings" and pig link open
+/* Parses the deep-link hash the notice opens:
      settings.html#panel=muted
      settings.html#cat=<categoryId>[&phrase=<rule text>]
-   (a bare #muted still works). On load AND on hashchange this switches panel,
-   expands the category, scrolls it into view and briefly highlights the exact
-   phrase chip, or the threshold control for a counting category. */
+   A bare #muted also works. applyHash then switches panel, expands the
+   category, and highlights the phrase chip (or the threshold for a counting
+   category). */
 function parseSettingsHash(hash) {
   const raw = String(hash || '').replace(/^#/, '');
   if (!raw) return {};
@@ -100,7 +97,7 @@ const el = (t, c, txt) => {
   return n;
 };
 
-/* Settings changed somewhere else (a LinkedIn tab's notice). */
+/* Handles a settings change made elsewhere, such as a notice in a LinkedIn tab. */
 function onSettingsChanged(changes, area, doc = document) {
   if (area !== 'local' || !changes[st.STORAGE_KEY]) return;
   const next = changes[st.STORAGE_KEY].newValue;
@@ -123,8 +120,8 @@ function renderAll(doc) {
 const PANEL_FILES = ['./settings-categories.js', './settings-people.js', './settings-activity.js', './settings-backup.js'];
 
 if (typeof module !== 'undefined') {
-  // Node has no shared scope: put the shared names on globalThis first, so the
-  // panel files (and the functions below) find them as bare globals, as in the browser.
+  // Node has no shared script scope. Publish the shared names on globalThis so
+  // the panel files find them as bare globals, as they do in the browser.
   Object.assign(globalThis, { st, el, flashSaved, renderAll, applyHash, wirePanelSwitching, parseSettingsHash });
   const panels = PANEL_FILES.map(f => module.require(f));
   Object.assign(globalThis, ...panels);

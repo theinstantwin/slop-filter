@@ -1,16 +1,15 @@
 /**
- * Builds the flag notice. Pure rendering — it holds no state and never
- * touches storage. All styling lives inside the shadow root so LinkedIn's
- * stylesheet cannot reach it and no !important is needed.
+ * Builds the flag notice and the muted-author card. Pure rendering: no state,
+ * no storage; user actions go out through onAction. Styling lives in a shadow
+ * root so LinkedIn's stylesheet can't reach it.
  */
 
 const NOTICE_CSS = `
 :host { display:block; }
-/* The wash is brand red at 12% over white. 9% was too easy to scroll past;
-   18% starts reading as an error state at density. The wordmark and toggle are
-   darkened from #C62D18/#0A66C2 because at this tint depth the lighter pair
-   measures 4.6:1 and 4.9:1 — under the 4.5:1 AA floor once antialiasing eats
-   into it. Measured, not eyeballed. */
+/* The wash is brand red at 12% over white: 9% is easy to scroll past, 18%
+   reads as an error. The wordmark and toggle use darker reds and blues than the
+   brand pair (#C62D18/#0A66C2), which measure 4.6:1 and 4.9:1 on this tint,
+   too close to the 4.5:1 AA floor once antialiasing is counted. */
 .wrap {
   background:#F8E6E3; color:#12212B;
   border-bottom:1px solid rgba(0,0,0,.08);
@@ -18,14 +17,13 @@ const NOTICE_CSS = `
   padding:9px 16px;
   font-family:Geist,-apple-system,system-ui,sans-serif;
 }
-/* The bar is always ONE line: pig, wordmark, author, tags, toggle. Tags that
-   don't fit collapse into a "+N" tag (see fit() in buildNotice). The reasons
-   list sits below the bar, never beside it. */
+/* The bar is always one line; tags that don't fit collapse into "+N" (see
+   fit() in buildNotice). The reasons list sits below it. */
 .bar { display:flex; align-items:center; gap:8px; flex-wrap:nowrap; min-width:0; }
 :host([data-collapsed="true"]) .wrap { border-radius:7px; border-bottom:0; }
-/* Sits at the same x-position as a post's avatar, so a saturated circle
-   breaks a pattern the eye is already scanning down the feed. This is what
-   makes the notice catchable at scroll speed without a louder wash. */
+/* Aligned with a post's avatar column so a saturated circle interrupts the
+   pattern the eye is already scanning, which lets a quiet wash stay catchable
+   at scroll speed. */
 .glyph { width:22px; height:22px; flex-shrink:0; display:block; }
 .mark {
   font-family:"SlopFilter Display",Rosario,-apple-system,system-ui,sans-serif;
@@ -48,11 +46,10 @@ const NOTICE_CSS = `
 .anchor[data-open="true"] > .more, .more:hover { background:rgba(198,45,24,.10); border-style:solid; }
 .anchor[hidden] { display:none; }
 .anchor[data-more] .pop { left:auto; right:0; }
-.anchor[data-more] .card { width:auto; min-width:0; }
+.anchor[data-more] > .pop > .card { width:auto; min-width:0; } /* the +N list only, not a card nested in it */
 .rest { display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
-/* B0: tinted fill rather than the old solid-red chip. Solid fills competed
-   with the glyph for the one saturated accent in the row; the tint lets the
-   glyph lead and keeps the badges as supporting detail. */
+/* Tinted, not solid: a solid chip would compete with the pig for the row's one
+   saturated accent. */
 .chip {
   font-family:Geist,-apple-system,system-ui,sans-serif;
   font-size:11.5px; font-weight:600;
@@ -60,8 +57,8 @@ const NOTICE_CSS = `
   border-radius:3px; padding:3px 7px;
 }
 .chip .n { font-variant-numeric:tabular-nums; opacity:.75; margin-left:4px; }
-/* LinkedIn's own blue, darkened for AA on the wash. Inheriting the platform's
-   action colour means the affordance is already learned. */
+/* LinkedIn's action blue, darkened for AA on the wash, so the affordance is
+   already familiar. */
 .toggle {
   margin-left:auto; flex-shrink:0; white-space:nowrap;
   font-family:inherit; font-size:13px; font-weight:600;
@@ -69,21 +66,19 @@ const NOTICE_CSS = `
   padding:6px 8px; border-radius:4px; cursor:pointer;
 }
 .toggle:hover { background:rgba(0,0,0,.08); }
-/* The bar is the click target (see buildNotice). Hover deepens the wash one
-   step and nothing moves; popovers and the reasons list are excluded so
-   pointing at them doesn't light up the whole bar. */
+/* The bar is the click target (see buildNotice). Hover deepens the wash;
+   popovers and the reasons list are excluded from the hover state. */
 .wrap { cursor:pointer; transition:background-color .12s ease; position:relative; }
 .wrap:hover:not(:has(.anchor:hover, .detail:hover, .hint:hover)) { background-color:#F4DCD7; }
 .toggle:focus-visible, .link:focus-visible, .step button:focus-visible,
 [data-trigger]:focus-visible { outline:2px solid #0854A0; outline-offset:2px; }
 
-/* The notice is rebuilt on every toggle (renderNotice replaces the node), so
-   the reveal is a one-shot entrance ANIMATION, not a transition. Collapse has
-   no exit animation — the node is destroyed — which reads as a quick close. */
+/* The notice node is rebuilt on every toggle, so the reveal is an entrance
+   animation rather than a transition; collapsing has no exit animation. */
 @keyframes sf-unfold { from { grid-template-rows:0fr; } to { grid-template-rows:1fr; } }
 @keyframes sf-settle { from { opacity:0; transform:translateY(-4px); } }
-/* The hairline spans the notice's full width: the negative margins cancel the
-   bar's 16px side padding, and the basis adds it back so the row still fits. */
+/* Negative margins cancel the wrap's 16px side padding so the hairline spans
+   the full width. */
 .detail {
   margin:9px -16px 0; cursor:auto;
   border-top:1px solid rgba(176,40,26,.18);
@@ -97,8 +92,8 @@ const NOTICE_CSS = `
 }
 .why ul { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; }
 .why li { display:flex; align-items:center; gap:10px; }
-/* The text is the list item so its marker is a real red disc; the row stays a
-   flex line so "Change in Settings" can sit at the right edge. */
+/* The text is the list item so it gets a real marker; the row stays flex so
+   "Change in Settings" can sit at the right edge. */
 .why .tx { flex:1; display:list-item; list-style:disc; margin-left:16px; }
 .why .tx::marker { color:#B0281A; }
 .why .dim { color:rgba(0,0,0,.5); }
@@ -114,8 +109,8 @@ const NOTICE_CSS = `
 .chg:hover, .chg:focus-visible { color:#0A66C2; }
 .chg:focus-visible { outline:2px solid #0854A0; outline-offset:2px; border-radius:2px; }
 
-/* Popovers. The anchor wraps trigger + card so moving the pointer from one to
-   the other never leaves the anchor (no hover gap, no timers). */
+/* Popovers. The anchor wraps trigger and card so the pointer never leaves it
+   between the two (no hover gap, no timers). */
 .anchor { position:relative; display:inline-flex; align-items:center; }
 .anchor[data-trigger-pig] { flex-shrink:0; }
 [data-trigger] { cursor:pointer; }
@@ -157,7 +152,7 @@ const NOTICE_CSS = `
 .anchor[data-trigger-pig] [data-trigger] { border-radius:50%; display:block; }
 .anchor[data-trigger-pig][data-open="true"] [data-trigger] { box-shadow:0 0 0 3px #EFCFC8; }
 .anchor[data-open="true"] > .chip { background:#E6BAB1; }
-/* The pig twitches snout and ears twice, once, the first time a notice renders. */
+/* The pig twitches twice, the first time a notice renders. */
 .glyph svg { overflow:visible; }
 .react .snout { animation:sf-snout .5s ease-in-out 2; transform-origin:64px 73px; transform-box:view-box; }
 .react .earL { animation:sf-earL .5s ease-in-out 2; transform-origin:44px 40px; transform-box:view-box; }
@@ -172,8 +167,7 @@ const NOTICE_CSS = `
 }
 `;
 
-/* The pig badge: the logo's pig mark, viewBox cropped to the
-   circle so it fills the 22px slot the old "S" glyph used. */
+/* The logo's pig mark, viewBox cropped to the circle to fill the 22px slot. */
 const PIG_BADGE =
   '<svg viewBox="16 16 96 96" width="22" height="22">' +
   '<circle cx="64" cy="64" r="48" fill="#C62D18"/>' +
@@ -189,8 +183,7 @@ const PIG_BADGE =
   '<ellipse cx="70.5" cy="73" rx="3" ry="5" fill="#C62D18"/>' +
   '</g></g></svg>';
 
-/* Mirror THRESHOLD_MIN/MAX in storage.js (not loaded under node, so not
-   imported); setThreshold clamps to the same range. */
+// Mirror THRESHOLD_MIN/MAX in storage.js, which isn't loaded under Node tests.
 const LIMIT_CEILING = 15;
 const LIMIT_FLOOR = 2;
 
@@ -216,14 +209,12 @@ function card(title) {
 }
 
 /**
- * The notice: a bar (pig, wordmark, author, chips, toggle) and, when opened,
- * a bulleted list of reasons, each with a "Change in Settings" link. The
- * pig and counting chips carry hover popovers; phrase chips are plain labels.
+ * The notice: a bar (pig, wordmark, author, chips, toggle) and, when opened, a
+ * list of reasons each linking to Settings. The pig and counting chips carry
+ * hover popovers; phrase chips are plain labels.
  *
- * onAction(action, payload): 'toggle', 'mute' (author),
- * 'setLimit' ({filterId, n}), 'openSettings' ({panel} or {cat, phrase?}),
- * 'dismissHint'.
- *
+ * onAction(action, payload): 'toggle', 'mute' (author), 'setLimit'
+ * ({filterId, n}), 'openSettings' ({panel} or {cat, phrase?}), 'dismissHint'.
  * openKey/openFocus reopen a popover after the host rebuilds the notice (the
  * stepper changes settings, which re-judges the feed).
  */
@@ -249,14 +240,14 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   function setOpen(a, on) {
     a.dataset.open = String(on);
     a.querySelector('[data-trigger]').setAttribute('aria-expanded', String(on));
-    // An open popover hangs below the bar; lift this notice above the next
-    // post's notice so the card isn't painted underneath it.
+    // Lift the notice while a popover is open so the card isn't painted under
+    // the next post's notice.
     const anyOpen = anchors.some(x => x.dataset.open === 'true');
     host.style.position = anyOpen ? 'relative' : '';
     host.style.zIndex = anyOpen ? '20' : '';
   }
   function open(a) {
-    // an anchor nested in another (a tag inside "+N") keeps its parent open
+    // A tag nested inside "+N" keeps its parent open.
     for (const o of anchors) {
       if (o !== a && o.dataset.open === 'true' && !o.contains(a)) setOpen(o, false);
     }
@@ -271,7 +262,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
     onAction('dismissHint');
   }
 
-  /* trigger + popover card in one hover/focus/click unit */
+  // Trigger plus popover card as one hover/focus/click unit.
   function makeAnchor(key, trigger, cardEl, label, isPig) {
     const a = mkEl('span', 'anchor');
     a.dataset.pop = key;
@@ -328,8 +319,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
 
   bar.appendChild(mkEl('span', 'mark', 'Slop Filter'));
 
-  // Collapsed posts show nothing but this bar, so the notice has to say whose
-  // post it is.
+  // A collapsed post shows only this bar, so it names the author.
   if (author) {
     const by = mkEl('span', 'author', author);
     by.dataset.author = author;
@@ -354,12 +344,11 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   }
   units.forEach(u => chips.appendChild(u));
 
-  // "+N": the tags that don't fit. Same popover unit as the other tags; the
-  // hidden tags themselves move into its card, so a counting tag keeps its own
-  // limit popover (nested) and there is only ever one copy of each.
+  // "+N" holds the tags that don't fit. The tags themselves move into its card
+  // (not copies), so a counting tag keeps its limit popover, nested.
   const moreBtn = mkEl('button', 'more');
   moreBtn.type = 'button';
-  const rest = mkEl('div', 'card rest'); // a real popover card, like every other tag's
+  const rest = mkEl('div', 'card rest');
   rest.setAttribute('aria-label', 'More reasons');
   const moreAnchor = makeAnchor('more', moreBtn, rest, '', false);
   moreAnchor.dataset.more = 'true';
@@ -376,13 +365,11 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
     moreBtn.textContent = `+${n}`;
     moreBtn.setAttribute('aria-label', `${n} more ${n === 1 ? 'reason' : 'reasons'}`);
   }
-  /* Show as many tags as fit, the rest behind "+N". Measures live (the
-     ResizeObserver below re-runs it), so a wide window shows every tag and a
-     narrow one collapses sooner. Pig, wordmark, author and toggle never give
-     way: the tags area is whatever width is left over. */
+  // Shows as many tags as fit and puts the rest behind "+N". Re-runs on resize.
+  // Pig, wordmark, author and toggle keep their width; tags get what remains.
   function fit() {
     const active = root.activeElement;
-    for (const u of units) chips.insertBefore(u, moreAnchor); // back in order
+    for (const u of units) chips.insertBefore(u, moreAnchor); // restore order
     moreAnchor.hidden = true;
     if (moreAnchor.dataset.open === 'true') setOpen(moreAnchor, false);
     else moreAnchor.dataset.open = 'false';
@@ -402,16 +389,15 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
       setMore(units.length - k);
       for (const u of units.slice(k)) rest.appendChild(u);
     }
-    // a tag whose popover was open before a rebuild may have moved behind +N
+    // A tag that was open before a rebuild may now be behind +N.
     if (units.slice(k).some(u => u.dataset?.open === 'true')) setOpen(moreAnchor, true);
     if (active && root.activeElement !== active) /** @type {HTMLElement} */ (active).focus?.();
   }
   /** @type {any} */ (host).sfFit = fit;
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(bar);
 
-  // The whole bar toggles, both ways. The button stays for keyboard users; its
-  // click bubbles here (one toggle, not two). Clicks inside a popover, the
-  // hint or the reasons never toggle.
+  // The whole bar toggles. The button remains for keyboard users and its click
+  // bubbles here, so there is one toggle. Popover, hint and reasons clicks don't.
   wrap.addEventListener('click', (e) => {
     if (/** @type {Element} */ (e.target).closest('.anchor, .hint, .detail')) return;
     onAction('toggle');
@@ -421,7 +407,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   });
   root.addEventListener('keydown', (/** @type {KeyboardEvent} */ e) => {
     if (e.key !== 'Escape') return;
-    // Close the innermost open popover first (a tag inside "+N"), then its parent.
+    // Close the innermost popover first (a tag inside "+N"), then its parent.
     const opened = anchors.filter(a => a.dataset.open === 'true');
     for (const a of opened) {
       if (opened.some(o => o !== a && a.contains(o))) continue;
@@ -481,7 +467,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
 
   root.appendChild(wrap);
 
-  // Reopen after a rebuild, then put keyboard focus back on the pressed button.
+  // Reopens a popover after a rebuild and restores focus to the pressed button.
   /** @type {any} */ (host).sfRestore = () => {
     const a = anchors.find(x => x.dataset.pop === openKey);
     if (!a) return;
@@ -491,6 +477,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   return host;
 }
 
+/** The counting chip's popover: a stepper that clamps to LIMIT_FLOOR..LIMIT_CEILING. */
 function buildLimitCard(m, onAction) {
   let limit = m.limit;
   const c = card(m.filterName);
@@ -531,10 +518,6 @@ function buildLimitCard(m, onAction) {
   return c;
 }
 
-/**
- * Replaces a notice after the reader mutes its author: a quiet card with Undo.
- * onAction('undoMute', author).
- */
 const MUTED_CSS = `
 :host { display:block; }
 .card {
@@ -551,7 +534,10 @@ const MUTED_CSS = `
 .undo:focus-visible { outline:2px solid #0854A0; outline-offset:2px; }
 `;
 
-/** @param {{ author: string, onAction?: (action: string, payload?: any) => void }} opts */
+/**
+ * The card that replaces a notice after the reader mutes its author, with an
+ * Undo button: onAction('undoMute', author).
+ * @param {{ author: string, onAction?: (action: string, payload?: any) => void }} opts */
 function buildMutedCard({ author, onAction = () => {} }) {
   const host = document.createElement('div');
   host.dataset.sfNotice = 'true';

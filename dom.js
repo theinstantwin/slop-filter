@@ -1,12 +1,8 @@
 /**
- * dom.js — the single place that knows what LinkedIn's DOM looks like.
- *
- * Every selector here was verified against a live authenticated feed on
- * 26 Jul 2026. When LinkedIn changes its markup, this file
- * is the only one that should need editing.
- *
- * Rule: anchor on data-testid and ARIA. Never on class names — LinkedIn's SDUI
- * build emits hashed classes like `_49700731 _89202f1c` that change per deploy.
+ * dom.js: the only file that knows LinkedIn's feed markup.
+ * Anchor on data-testid and ARIA, never class names: LinkedIn emits hashed
+ * classes (`_49700731`) that change per deploy. Ad detection is the one
+ * exception (see _adLabel).
  */
 
 const SEL = {
@@ -31,14 +27,9 @@ function getPosts(root = document) {
 }
 
 /**
- * Author display name.
- *
- * MUST come from the control-menu aria-label. Do NOT derive it from the first
- * profile link: on a post carrying social proof ("X likes this",
- * "X commented"), the first a[href*="/in/"] is the REACTOR, not the author.
- * Measured on a live feed: 5 of 8 posts carried social proof, so link-based
- * attribution was wrong 62% of the time. LinkedIn's own menu mixes both people
- * — "Unfollow <reactor>" sits next to "Hide posts by <author>".
+ * Author display name, read from the control-menu aria-label. The first
+ * profile link is not safe: on a post with social proof ("X likes this") it
+ * points to the reactor, not the author (5 of 8 posts on a sampled feed).
  */
 function getAuthor(post) {
   const btn = post.querySelector(SEL.menuTrigger);
@@ -51,16 +42,11 @@ function getAuthor(post) {
 
 /**
  * The author's own post text.
- *
- * A post may contain several [data-testid="expandable-text-box"] nodes: the
- * post body plus any surfaced comments. They are distinguishable by depth —
- * the body sits ~4 levels below the listitem, surfaced comments ~13. Taking
- * the shallowest avoids filtering a post on a commenter's words.
- *
- * Uses textContent, not innerText: textContent already holds the FULL text
- * even while LinkedIn renders it collapsed. Verified by clicking every "…more"
- * expander and re-measuring — zero characters gained. The extension never
- * needs to expand anything to scan it.
+ * A post can hold several text boxes (the body plus surfaced comments). The
+ * body is the shallowest, about 4 levels below the listitem versus about 13
+ * for comments, so a commenter's words never trigger a filter.
+ * textContent, not innerText: it already holds the full text while LinkedIn
+ * shows it collapsed behind "…more", so nothing needs expanding.
  */
 function getPostText(post) {
   const boxes = Array.from(post.querySelectorAll(SEL.textBox));
@@ -78,13 +64,9 @@ function getPostText(post) {
 }
 
 /**
- * Social-proof header, e.g. "Alex Example likes this".
- * Rendered OUTSIDE the text box, so it never pollutes filter matching —
- * verified. Exposed for display only.
- *
- * Walks all elements in the post (depth-first) and collects each element's
- * OWN text (direct text nodes only). Tests each line against the regex and
- * the <80 char rule. Returns the first match or null. This avoids depending
+ * Social-proof header, e.g. "Alex Example likes this", or null. It renders
+ * outside the text box, so it never affects matching; display only.
+ * Matches each element's own text nodes (under 80 chars) so it doesn't depend
  * on whitespace in minified markup.
  */
 function getSocialProof(post) {
@@ -109,13 +91,9 @@ function getSocialProof(post) {
 }
 
 /**
- * Wait for the feed to exist — it is absent at document_idle.
- *
- * No give-up timeout: this is a content script in a SPA, not a page load
- * check. A user who lands on a profile or article tab and then navigates to
- * the feed client-side must still get scanned, arbitrarily long after
- * injection. The observer disconnects the instant the feed appears (its only
- * exit) and otherwise stays armed for the life of the page.
+ * Resolves with the feed element once it exists (absent at document_idle).
+ * There is no timeout: a user can open a profile first and reach the feed by
+ * client-side navigation arbitrarily later, and must still be scanned.
  */
 function whenFeedReady() {
   return new Promise(resolve => {
@@ -131,22 +109,17 @@ function whenFeedReady() {
 }
 
 /**
- * Promoted/boosted ad detection.
+ * Classifies a post's ad label as 'promoted', 'boosted', or null.
  *
- * DOCUMENTED EXCEPTION to this file's data-testid/ARIA anchor rule. Live
- * specimens show LinkedIn ads reuse the organic post shell completely: same
- * aria-label set, no data-testid, no ad-specific ARIA anywhere. The only tell
- * is a plain-text label in the actor block, where an organic post would show
- * a timestamp instead — so this walks text nodes OUTSIDE the text box and
- * matches on exact/prefixed strings, scoped hard by length so body copy never
- * qualifies even when the text-box exclusion below is bypassed some other way.
+ * Ads reuse the organic post shell: same aria-labels, no data-testid. The only
+ * tell is a plain-text label in the actor block where an organic post shows a
+ * timestamp. So this walks text nodes outside the text box and matches exact
+ * or prefixed strings of at most 60 chars, which keeps body copy from matching.
  *
- * Two predicates, not one, because the product treats the two label shapes
- * differently (PRD's locked decision): plain "Promoted"/"Sponsored" is
- * LinkedIn selling inventory directly to a company and hides by default;
- * "Promoted • Partnership with <brand>" — and "Promoted by <brand>", a newer
- * LinkedIn phrasing observed 2026-07-28 for the same underlying concept, a
- * real person's post amplified by a named sponsor — is opt-in.
+ * Two classes because they filter differently. Plain "Promoted"/"Sponsored" is
+ * LinkedIn selling inventory to a company (hidden by default). "Promoted
+ * by/Partnership with <brand>" is a real person's post amplified by a sponsor
+ * (opt-in).
  */
 function _adLabel(post) {
   const doc = post.ownerDocument;
@@ -157,20 +130,16 @@ function _adLabel(post) {
     const node = walker.currentNode;
     const t = (node.textContent || '').trim();
     if (!t || t.length > 60) continue;
-    if (node.parentElement?.closest(SEL.textBox)) continue; // body copy never counts
+    if (node.parentElement?.closest(SEL.textBox)) continue;
     if (t === 'Promoted' || t === 'Sponsored') return 'promoted';
-    // Exact equality, not a /by\b/ prefix, for the split-node form: live
-    // markup (Fireflies.ai sighting, 2026-08-22) puts the brand in its own
-    // <a><strong> with the whitespace in a separate <span>, so the label
-    // text node is exactly "Promoted by" — trim has eaten the space the
-    // old "by " prefix required. Equality keeps the headline rule:
-    // "Promoted by my boss to VP…" body/headline copy still never matches.
+    // Split-node form: the brand sits in its own link, so the label node is
+    // exactly "Promoted by" (trim removes the trailing space). Equality, not a
+    // prefix, so a headline like "Promoted by my boss to VP" never matches.
     if (t === 'Promoted by' || t === 'Sponsored by') return 'boosted';
     if (/^(Promoted|Sponsored) ([•·] |by )/.test(t)) return 'boosted';
-    // A co-authored post puts the label after its byline in the same text
-    // node: "with 3 others • Promoted by" (brand in its own link node). Only
-    // the exact split-node form counts after a separator, so a headline like
-    // "CEO • Promoted to VP" never does.
+    // Co-authored posts put the label after the byline in one node
+    // ("with 3 others • Promoted by"). Only the exact split form counts after
+    // a separator, so "CEO • Promoted to VP" doesn't.
     const tail = t.split(/\s*[•·]\s*/).pop();
     if (tail !== t && (tail === 'Promoted by' || tail === 'Sponsored by')) return 'boosted';
   }
@@ -180,8 +149,8 @@ function _adLabel(post) {
 const isPromoted = post => _adLabel(post) === 'promoted';
 const isBoosted = post => _adLabel(post) === 'boosted';
 
-// Public API. Node: module.exports. Browser: the shared SlopFilter namespace,
-// because scripts there share one scope and top-level names must not collide.
+// Node: module.exports. Browser: the shared SlopFilter namespace, since content
+// scripts share one scope and top-level names would collide.
 Object.assign(typeof module !== 'undefined' ? module.exports : (globalThis.SlopFilter ||= {}), {
   SEL, getPosts, getAuthor, getPostText,
   getSocialProof, whenFeedReady,

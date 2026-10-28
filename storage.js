@@ -1,27 +1,19 @@
 /**
  * Settings shape, migration, and chrome.storage.local access.
  *
- * Settings live under `slopFilterSettings`. Installs from before 1.2 stored
- * them under `doucheFilterSettings`; load() moves them to the new key once
- * and deletes the old one, so no one loses their muted-author list.
+ * Settings live under `slopFilterSettings` (schema 2). Categories are stored in
+ * the blob; SEED_CATEGORIES in filters.js only seeds a fresh install and
+ * supplies built-in names. Every migration function takes SEED as a defaulted
+ * parameter so tests can inject one.
  *
- * Phrase on/off lives on the rule's own category: `cat.off` is an optional
- * array of rule strings (exact, as they appear in `cat.rules`) that are kept
- * but do not flag. A rule is enabled unless it is listed in `off`, so `rules`
- * stays a plain string array and every existing reader keeps working.
- * filters.js findMatches skips rules listed in `off`; Settings shows each as a
- * checkbox. The old global `allowedPhrases` list is gone: migration lifts
- * every entry it can map onto a rule and drops the rest (see
- * liftAllowedPhrases), so the field always comes back as [].
+ * migrate() is the one place settings are made valid. Every path in (load, a
+ * restored backup, a storage change from another tab) goes through it, so
+ * readers never re-check types or clamp thresholds.
  *
- * migrate() is the one place settings are made valid. Every path in (load,
- * a restored backup, a storage change from another tab) goes through it, so
- * readers never re-check types or clamp thresholds themselves.
- *
- * Schema 2 moves categories INTO the blob (filters.js's SEED_CATEGORIES is
- * only ever the seed — every read after first install goes through the
- * stored categories array, never back through the seed). Every migration
- * function takes SEED as a defaulted parameter so tests can inject one.
+ * Phrase on/off lives on the category: `cat.off` lists rules (exact strings
+ * from `cat.rules`) that are kept but don't flag, so `rules` stays a plain
+ * string array. Counters live under their own key (counters.js) so a counter
+ * bump never re-serializes this blob.
  */
 /**
  * @typedef {object} Category
@@ -67,8 +59,7 @@ function seedCategories(SEED) {
   return SEED.map(c => ({ ...c, rules: c.rules ? [...c.rules] : undefined }));
 }
 
-// 1.1-era shape, kept only as a migration source — never read directly by
-// content.js/popup.js once schema 2 exists.
+// The pre-schema-2 shape, kept only as a migration source.
 const LEGACY_DEFAULTS = {
   version: 2,
   flagMode: 'collapse',
@@ -85,11 +76,15 @@ const LEGACY_DEFAULTS = {
   thresholds: { hashtagOverload: 5, emojiOverload: 5 },
 };
 
-// Phrases added to a built-in category after release. Each is added once to
-// stored settings (keyed "<catId>:<rule>" in addedRules), so a phrase the
-// user later deletes is never put back.
+// Phrases added to built-in categories after release. Each is applied to stored
+// settings once (tracked as "<catId>:<rule>" in addedRules), so a phrase the
+// user deletes later stays deleted.
 const ADDED_RULES = {
   selfPromotion: ['follow for the latest', 'follow us for'],
+  aiSlop: ['most people get this wrong', 'in the ever-evolving landscape', 'unlocking new possibilities'],
+  fakeInsight: ['nobody tells you', 'the uncomfortable truth', "everything you've been told",
+    "is wrong. here's why", 'is half right', 'harsh truth:'],
+  engagementBait: ['and i love it. why?', 'busy founders:'],
 };
 
 function buildDefaults(SEED) {
@@ -102,18 +97,14 @@ function buildDefaults(SEED) {
     allowedPhrases: [],
     mutedAuthors: [],
     whitelistedAuthors: [],
-    paused: false,                   // popup "Pause filtering": judge and hide nothing
-    noticeHintSeen: false,           // the one-time pig/tag tip, dismissed forever
+    paused: false,                   // judge and hide nothing
+    noticeHintSeen: false,           // the one-time pig/tag tip
     addedRules: Object.entries(ADDED_RULES).flatMap(([id, rules]) => rules.map(r => `${id}:${r}`)),
-    // No stats here. A 1.0-era { hidden, allowed } tally lived in this blob with
-    // a reader and no writer — a permanent 0 indistinguishable from the filter
-    // being dead. 1.2's Activity counters go under their OWN storage key so
-    // counter bumps don't re-serialise the whole settings blob (see PRD).
   };
 }
 
-// The range a counting filter's threshold may take. Below 2 a filter would
-// flag nearly every post; above 15 it could never fire.
+// Threshold range for counting filters: below 2 nearly every post would flag,
+// above 15 it would effectively never fire.
 const THRESHOLD_MIN = 2;
 const THRESHOLD_MAX = 15;
 
@@ -125,16 +116,15 @@ function clampThreshold(n, fallback = THRESHOLD_MIN) {
 }
 
 const DEFAULTS = buildDefaults(_SEED);
-// Kept for migrating old blobs and for the "no drift from filters.js" check —
-// not part of the schema-2 shape itself.
+// Legacy fields, used by migration and by a test that checks for drift from
+// filters.js. Not part of the schema-2 shape.
 DEFAULTS.filters = clone(LEGACY_DEFAULTS.filters);
 DEFAULTS.thresholds = clone(LEGACY_DEFAULTS.thresholds);
 
 /**
- * Stage 1: 1.0/1.1 field-name migration. Produces the pre-schema-2 shape
- * (filters/thresholds/mutedAuthors/allowedPhrases/flagMode) from anything
- * older. Stage 2 (upgradeToV2) lifts that shape — or a native schema-2 blob —
- * onto categories.
+ * Stage 1: renames legacy fields into the pre-schema-2 shape (filters,
+ * thresholds, mutedAuthors, allowedPhrases, flagMode). upgradeToV2 then lifts
+ * that shape onto categories.
  */
 function migrateLegacy(stored) {
   const out = clone(LEGACY_DEFAULTS);
@@ -143,12 +133,12 @@ function migrateLegacy(stored) {
 
   if (stored.filters && typeof stored.filters === 'object') {
     for (const [key, val] of Object.entries(stored.filters)) {
-      // 1.0 called this filter linkedinGuru; 1.1 renamed it Fake Insight.
+      // Pre-1.1 id.
       const id = key === 'linkedinGuru' ? 'fakeInsight' : key;
       if (id in out.filters) out.filters[id] = !!val;
     }
   }
-  // 1.0 key was blockedAuthors; 1.1 calls the action Mute.
+  // Pre-1.1 key.
   const muted = stored.mutedAuthors || stored.blockedAuthors;
   if (Array.isArray(muted)) out.mutedAuthors = muted.slice();
 
@@ -163,14 +153,12 @@ function migrateLegacy(stored) {
 }
 
 /**
- * "Stop flagging this phrase" used to push the matched text onto a global
- * allowedPhrases list. Phrase on/off now lives on the rule (`cat.off`), so
- * every allowed entry that equals a plain rule in a category (case-insensitive)
- * turns that rule off in each category that has it, and leaves the list.
- * Entries that match no plain rule are dropped: text caught by a ___ sentence
- * template or a Labs pattern has no checkbox to move to, and a hidden
- * suppression list the user can neither see nor undo is worse than letting
- * the phrase flag again. Mutates `categories` (already normalized copies).
+ * Migrates the pre-1.2 global allowedPhrases list: an entry equal to a plain
+ * rule (case-insensitive) turns that rule off in every category that has it.
+ * Other entries are dropped. Text caught by a ___ template or a Labs pattern
+ * has no checkbox to move to, and a hidden suppression list the user can't see
+ * or undo is worse than letting the phrase flag again.
+ * Mutates `categories`, which must already be normalized copies.
  */
 function liftAllowedPhrases(categories, allowed) {
   for (const entry of allowed) {
@@ -186,24 +174,17 @@ function liftAllowedPhrases(categories, allowed) {
   }
 }
 
-/**
- * Stage 2: lift a (post-stage-1) legacy blob, or an existing schema-2 blob,
- * onto schema 2. Append-only by id: a seed category NEVER overwrites an
- * on/off flag or rule list the blob already has — it only fills in
- * categories the blob has never seen.
- */
 // Seed definitions that have since been rewritten. A stored definition still
 // equal to one of these was never edited, so it takes the new seed text.
-
 const RETIRED_DEFS = {
   selfPromotion: ['Pitching a follow instead of standing on its own'],
 };
 
 const strings = a => (Array.isArray(a) ? a.filter(x => typeof x === 'string') : []);
 
-// One category in its valid shape, as a copy that shares nothing with the
-// input (later steps push into rules/off). Unknown fields ride along. Returns
-// null for something that cannot be a category at all.
+// Returns one category in its valid shape, as a copy sharing nothing with the
+// input (later steps push into rules/off), or null if it can't be a category.
+// Unknown fields are kept.
 /** @param {any} c @param {Category[]} SEED @returns {Category | null} */
 function normalizeCategory(c, SEED) {
   if (!c || typeof c !== 'object' || typeof c.id !== 'string') return null;
@@ -217,7 +198,12 @@ function normalizeCategory(c, SEED) {
   return out;
 }
 
-/** @param {any} stored @param {Category[]} [SEED] @returns {Settings} */
+/**
+ * Stage 2: lifts a stage-1 legacy blob, or an existing schema-2 blob, onto
+ * schema 2. Append-only by id: a seed category never overwrites a stored
+ * on/off flag or rule list, it only adds categories the blob hasn't seen.
+ * @param {any} stored @param {Category[]} [SEED] @returns {Settings}
+ */
 function upgradeToV2(stored, SEED = _SEED) {
   const hasCategories = Array.isArray(stored.categories);
 
@@ -233,28 +219,22 @@ function upgradeToV2(stored, SEED = _SEED) {
       return next;
     });
   } else {
-    // Already schema 2 (or upgraded once already): keep every existing
-    // category untouched, append deep copies of any seed id not yet present.
-    // One exception: sponsored moved from plain rule strings to a hardcoded
-    // labs regex (its bare "#ad" rule matched inside #advertising — compile()
-    // adds no word boundary), and a blob saved before that move carries the
-    // poisoned rules array forever unless repaired here. Re-seed the category
-    // shape, keeping only the user's on/off choice.
+    // Keep stored categories; append copies of seed ids not yet present.
+    // Exception: "sponsored" moved from plain rules to a Labs regex because its
+    // "#ad" rule matched inside #advertising. A blob saved before that still
+    // has the old rules array, so re-seed it and keep only the on/off choice.
     categories = stored.categories.map(c => normalizeCategory(c, SEED)).filter(Boolean).map(c => {
       if (c.id === 'sponsored' && Array.isArray(c.rules)) {
         const seed = SEED.find(s => s.id === 'sponsored');
         if (seed) return { ...seedCategories([seed])[0], on: !!c.on };
       }
-      // Labs categories are not editable, so their name and definition always
-      // come from the seed: a rename (Follow verb variants -> Follow Bait)
-      // reaches settings saved before it.
+      // Labs categories aren't editable, so name and definition track the seed.
       if (c.labs) {
         const seed = SEED.find(s => s.id === c.id);
         if (seed) return { ...c, name: seed.name, def: seed.def };
       }
-      // Built-in names can't be edited, so they always come from the seed
-      // (a rename like "Self-promotion CTA" -> "Self Promotion" reaches
-      // everyone). A definition is refreshed only if the user never edited it.
+      // Built-in names can't be edited, so they track the seed. A definition
+      // refreshes only if the user never edited it.
       if (!c.custom) {
         const seed = SEED.find(s => s.id === c.id);
         if (seed) {
@@ -305,18 +285,12 @@ function migrate(stored = {}, SEED = _SEED) {
   if (!stored || typeof stored !== 'object') return upgradeToV2({}, SEED);
   if (Array.isArray(stored.categories)) return upgradeToV2(stored, SEED);
 
-  // 1.0 keys with no 1.1 equivalent, intentionally dropped:
-  //   customPhrases  — 1.1 uses a flat allowedPhrases array, different shape
-  //   customFilters  — user-defined filter categories are not a 1.1 concept
-  //   hiddenPosts    — per-session dismissals; stale entries would just reappear once
+  // Legacy keys customPhrases, customFilters and hiddenPosts have no equivalent
+  // and are dropped.
   //
-  // migrateLegacy() only normalizes field NAMES (blockedAuthors->mutedAuthors,
-  // linkedinGuru->fakeInsight) and hands back mutedAuthors/allowedPhrases/
-  // flagMode already in their final shape. Its `filters`/`thresholds` output
-  // is filled from LEGACY_DEFAULTS for every key, not just the ones the user's
-  // blob actually set — so upgradeToV2's on/threshold overlay must read the
-  // RAW stored.filters/stored.thresholds (renamed), never the synthesized
-  // full object, or every never-touched key would appear "explicitly set."
+  // migrateLegacy fills `filters`/`thresholds` with defaults for every key, so
+  // the overlay in upgradeToV2 must read the raw stored values (ids renamed).
+  // Otherwise every untouched key would look explicitly set.
   const stage1 = migrateLegacy(stored);
   const rawFilters = {};
   if (stored.filters && typeof stored.filters === 'object') {
@@ -336,7 +310,7 @@ function nextCustomId(categories) {
   return `custom${n}`;
 }
 
-// Turn one rule on or off without deleting it. `off` is omitted when empty.
+// Turns one rule on or off without deleting it. `off` is omitted when empty.
 function setRuleOn(settings, id, rule, on) {
   const next = clone(settings);
   const cat = next.categories.find(c => c.id === id);
@@ -361,6 +335,7 @@ function unmute(settings, author) {
   return next;
 }
 
+/** Adds an author to Trusted People; throws if they are muted. */
 function allowAuthor(settings, author) {
   if (author && settings.mutedAuthors.includes(author)) {
     throw new Error(`"${author}" is already muted — remove them from Muted people first, or use a different name.`);
@@ -404,9 +379,7 @@ function setThreshold(settings, id, n) {
   return next;
 }
 
-// Built-in categories can't go through upsertCustomCategory (custom-only) but
-// still need their definition editable in place — the settings panel's Edit
-// button works on every category, not just custom ones.
+// Edits a definition on any category; upsertCustomCategory only handles custom ones.
 function setCategoryDef(settings, id, def) {
   const next = clone(settings);
   const cat = next.categories.find(c => c.id === id);
@@ -425,9 +398,8 @@ function addRule(settings, id, text) {
 function removeRule(settings, id, text) {
   const next = clone(settings);
   const cat = next.categories.find(c => c.id === id);
-  // Sentence templates (containing BLANK) are built-in and locked — the
-  // settings panel renders them with no × for exactly this reason, but the
-  // helper refuses independently rather than relying on the UI never asking.
+  // Sentence templates (containing BLANK) are built-in and locked. The UI hides
+  // their delete button, and this refuses independently of the UI.
   if (cat && !String(text).includes(_BLANK)) {
     cat.rules = cat.rules.filter(r => r !== text);
     if (cat.off) {
@@ -438,6 +410,7 @@ function removeRule(settings, id, text) {
   return next;
 }
 
+/** Creates a custom category, or renames and redefines an existing one by id. */
 function upsertCustomCategory(settings, { id, name, def }) {
   const next = clone(settings);
   const existing = id ? next.categories.find(c => c.id === id && c.custom) : undefined;
@@ -463,6 +436,7 @@ function deleteCategory(settings, id) {
   return next;
 }
 
+/** Loads settings, migrating the pre-1.2 `doucheFilterSettings` key to the current one once. */
 async function load() {
   if (typeof chrome === 'undefined' || !chrome.storage) return clone(DEFAULTS);
   const blob = await chrome.storage.local.get([STORAGE_KEY, LEGACY_KEY]);

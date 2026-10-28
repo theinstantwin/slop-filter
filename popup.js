@@ -1,14 +1,16 @@
 /**
- * Popover script. popup.html loads filters.js and storage.js first; their API
- * is on globalThis.SlopFilter, or required under `node --test`. `pf` is the
- * only top-level name this file adds for them.
+ * Toolbar popup: pause switch, per-category toggles and thresholds, flag mode,
+ * muted list. Every change re-reads storage and applies one transform, so
+ * edits made in Settings meanwhile are not overwritten.
+ * popup.html loads filters.js and storage.js first (globalThis.SlopFilter, or
+ * required under Node); `pf` is the only top-level name added for them.
  */
 const pf = typeof module !== 'undefined'
   ? { ...module.require('./filters.js'), ...module.require('./storage.js') }
   : globalThis.SlopFilter;
 
-// Same key counters.js writes when a post is caught (see LAST_CAUGHT_KEY there).
-// Not required from counters.js: that file also runs content-script setup.
+// Same key as counters.js's LAST_CAUGHT_KEY. Not imported because that file
+// also sets up content-script listeners.
 const CAUGHT_KEY = 'sfLastCaughtAt';
 const CAUGHT_WINDOW_MS = 5000;   // a catch this recent makes the pig react on open
 const REACT_MS = 1600;           // two twitches, then the pig settles
@@ -18,8 +20,8 @@ const FLAG_HINTS = {
   label: 'Flagged posts stay open, with a notice above them.',
 };
 
-// Same geometry as PIG_BADGE in notice.js (a test keeps the two in step),
-// plus an eyes-shut variant and the drifting z for the paused state.
+// Same geometry as PIG_BADGE in notice.js (a test keeps them in step), plus
+// the eyes-shut variant and drifting z for the paused state.
 const POPUP_PIG =
   '<svg class="pig" viewBox="16 16 96 96" aria-hidden="true">' +
   '<circle class="bg" cx="64" cy="64" r="48" fill="#C62D18"/>' +
@@ -38,15 +40,14 @@ const POPUP_PIG =
   '<text class="z" x="96" y="34">z</text><text class="z z2" x="104" y="26" style="font-size:16px">z</text>' +
   '</svg>';
 
-/** 'asleep' | 'react' | 'awake' — what the header pig shows. */
+/** Which header pig to show: 'asleep' (paused), 'react' (recent catch), or 'awake'. */
 function pigState(settings, caughtAt, now) {
   if (settings.paused) return 'asleep';
   if (caughtAt && now - caughtAt <= CAUGHT_WINDOW_MS && now >= caughtAt) return 'react';
   return 'awake';
 }
 
-/** Draws the header pig and pause switch for a state. The pig and the
-    switch say whether it is on; there is no separate status text. */
+/** Draws the header pig and pause switch for a state. */
 function renderStatus(doc, state) {
   const btn = doc.getElementById('pig-toggle');
   btn.innerHTML = POPUP_PIG; // static constant, no page data
@@ -63,7 +64,7 @@ function renderStatus(doc, state) {
   if (swl) swl.textContent = on ? 'On' : 'Paused';
 }
 
-/** After the twitch finishes, drop back to the resting awake pig. */
+/** Drops the pig back to its resting state after the twitch. */
 function settleStatus(doc) {
   const svg = doc.querySelector('#pig-toggle svg');
   if (!svg || !svg.classList.contains('react')) return;
@@ -94,8 +95,8 @@ function renderFilters(doc, settings) {
     const nameEl = doc.createElement('div');
     nameEl.className = 'frow-n';
     nameEl.textContent = cat.name;
-    // Small info mark with the category's description, the same text Settings
-    // shows (and the user may have edited there). Quick CSS tooltip, not title.
+    // Info mark showing the category description (the text Settings shows,
+    // including edits). A CSS tooltip, because title is slow to appear.
     if (cat.def) {
       const info = doc.createElement('button');
       info.type = 'button';
@@ -172,12 +173,9 @@ function renderMutes(doc, settings) {
 }
 
 /**
- * Applies a loaded settings blob to the popup's DOM: renders the filter rows,
- * renders the muted list, and checks the flagmode radio matching
- * settings.flagMode. Extracted so the chrome-storage IIFE below has exactly
- * one call site for "settings changed, redraw the popup" — the same shape
- * the IIFE already needs after a mute/unmute or threshold change — and so
- * this sequence is reachable from node --test without a chrome global.
+ * Redraws the whole popup from a settings blob: filter rows, muted list, flag
+ * mode radio and hint. Separate from initPopup so tests can call it without a
+ * chrome global.
  */
 function applySettings(doc, settings) {
   renderFilters(doc, settings);
@@ -187,8 +185,8 @@ function applySettings(doc, settings) {
 }
 
 /**
- * Wires the popup to chrome. Takes the document and chrome API explicitly so
- * node --test can drive it with jsdom and a stub.
+ * Wires the popup to chrome. Takes the document and chrome API as arguments so
+ * tests can pass jsdom and a stub.
  */
 async function initPopup(doc, api, now = Date.now()) {
   let settings = await pf.load();
@@ -211,11 +209,9 @@ async function initPopup(doc, api, now = Date.now()) {
   paint(now);
   renderFooter(doc, api.runtime.getManifest().version);
 
-  // Every change re-reads storage and applies one pure transform to the fresh
-  // copy, so an edit made in the Settings tab while the popup is open is not
-  // overwritten by this popup's older snapshot. Calls run one at a time so two
-  // quick clicks cannot read the same snapshot. Open LinkedIn tabs re-judge
-  // their posts from chrome.storage.onChanged.
+  // Re-reads storage and applies fn to the fresh copy, so a Settings edit made
+  // while the popup is open isn't overwritten by this popup's older snapshot.
+  // Calls are serialized so two quick clicks can't read the same snapshot.
   let queue = Promise.resolve();
   const update = (fn) => {
     queue = queue.then(async () => {
@@ -228,7 +224,7 @@ async function initPopup(doc, api, now = Date.now()) {
     return queue;
   };
 
-  // A change made elsewhere (Settings tab, another popup) repaints this one.
+  // A change from elsewhere (Settings tab, another popup) repaints this one.
   if (api.storage.onChanged) {
     api.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local' || !changes[pf.STORAGE_KEY]) return;
@@ -240,8 +236,8 @@ async function initPopup(doc, api, now = Date.now()) {
     });
   }
 
-  // The switch is the one control. A click anywhere else in the header
-  // delegates to it; its own click is left alone so it toggles exactly once.
+  // A click anywhere in the header delegates to the switch; clicks on the
+  // switch itself pass through so it toggles once.
   const sw = doc.getElementById('pause-switch');
   sw.addEventListener('change', async () => {
     const paused = !sw.checked;

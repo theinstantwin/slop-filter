@@ -1,13 +1,11 @@
 /**
- * background.js — service worker for Slop Filter
- *
- * Records the installation timestamp once when the extension is first installed.
- * On upgrade, the handler is called with reason='update' and does nothing.
+ * background.js: service worker.
+ * Owns the toolbar icon (red pig when filtering, grey pig when paused), the
+ * install timestamp, and opening Settings at a specific place on request.
  */
 
-// The toolbar icon is static: red pig when filtering, grey eyes-shut pig when
-// paused. It never animates. The worker has no storage.js, so it reads the
-// settings blob directly (same key as storage.js's STORAGE_KEY).
+// The worker doesn't load storage.js, so it reads the settings blob directly.
+// Keep in sync with STORAGE_KEY there.
 const SETTINGS_KEY = 'slopFilterSettings';
 
 function iconPaths(paused) {
@@ -54,10 +52,9 @@ function onInstalledHandler(details) {
   }
 }
 
-// The notice asks to open Settings at an exact place: the Muted people panel
-// (pig popover) or a category, optionally with one phrase (Change in Settings).
-// A content script cannot call chrome.tabs, and openOptionsPage cannot carry a
-// #hash, so the worker opens the page itself.
+// Builds the Settings URL hash for a deep link: the Muted people panel or a
+// category, optionally with one phrase. Content scripts can't call chrome.tabs
+// and openOptionsPage can't carry a #hash, so the worker opens the page itself.
 //   {panel:'muted'}            -> settings.html#panel=muted
 //   {cat:'aiSlop', phrase:'x'} -> settings.html#cat=aiSlop&phrase=x
 function settingsHash(msg) {
@@ -91,16 +88,13 @@ async function onMessageHandler(msg, sender) {
   if (typeof chrome === 'undefined' || !chrome.runtime || sender?.id !== chrome.runtime.id) return;
   const base = chrome.runtime.getURL('settings.html');
   const url = base + settingsHash(msg);
-  // Reuse an open Settings tab: changing only the #hash fires hashchange in
-  // the page, so it moves to the new spot without a reload. Without the
-  // "tabs" permission, tabs.query can't read tab URLs, so the worker finds
-  // its own Settings page through runtime.getContexts (no permission needed)
-  // and only falls back to tabs.query on Chrome versions without it.
+  // Reuse an open Settings tab: changing only the #hash fires hashchange, so
+  // the page moves without a reload. Without the "tabs" permission tabs.query
+  // can't read URLs, so findSettingsTab prefers runtime.getContexts.
   const existing = await findSettingsTab(base);
   if (existing) {
     if (existing.url === url) {
-      // Same URL, same hash: navigating would fire no hashchange, so tell the
-      // page to jump again itself.
+      // Same hash: navigating fires no hashchange, so message the page to jump.
       await chrome.tabs.update(existing.id, { active: true });
       chrome.runtime.sendMessage?.({ type: 'sf-settings-hash', hash: settingsHash(msg) })?.catch?.(() => {});
     } else {
@@ -112,15 +106,14 @@ async function onMessageHandler(msg, sender) {
   chrome.tabs.create({ url });
 }
 
-// Register the handler in the browser context.
 if (typeof chrome !== 'undefined' && chrome.runtime) {
   chrome.runtime.onInstalled.addListener(onInstalledHandler);
-  // Wrapped so the listener returns undefined: no reply is sent, and a
-  // returned Promise would only hold the message port open.
+  // Wrapped so the listener returns undefined; a returned Promise would hold
+  // the message port open.
   chrome.runtime.onMessage.addListener((msg, sender) => { onMessageHandler(msg, sender); });
   chrome.runtime.onStartup?.addListener(syncIconFromStorage);
   chrome.storage?.onChanged?.addListener(onStorageChangedHandler);
-  syncIconFromStorage(); // every worker wake-up, so the icon never drifts
+  syncIconFromStorage(); // runs on every worker wake-up so the icon can't drift
 }
 
 // Export for Node tests.

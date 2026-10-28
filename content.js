@@ -1,10 +1,11 @@
 /**
- * Orchestration. Holds no knowledge of LinkedIn's markup — that lives in
- * dom.js — and no rendering logic — that lives in notice.js.
+ * Orchestration: scans the feed, judges each post, renders the verdict, and
+ * routes notice actions back into settings. Markup knowledge lives in dom.js
+ * and rendering in notice.js.
  *
- * Under the extension the library scripts share one scope and publish their
- * API on globalThis.SlopFilter; under Node they are required instead. `sf` is
- * the only top-level name this file adds for them.
+ * In the extension the library scripts share one scope and publish on
+ * globalThis.SlopFilter; under Node they are required. `sf` is the only
+ * top-level name this file adds for them.
  */
 
 const sf = typeof module !== 'undefined'
@@ -20,48 +21,35 @@ const sf = typeof module !== 'undefined'
 let settings = null;
 
 /**
- * Decide about one post and render the verdict.
- *
- * Called for every post on every scan, and scans are debounced over an
- * infinite feed — so this must be idempotent and cheap. The sfProcessed guard
- * does both: it short-circuits to the cached verdict instead of re-running the
- * matcher and re-inserting a second notice. LinkedIn reuses post nodes rather
- * than recycling them across virtualised scroll (verified 8/8 over a 13k px
- * round trip), so a dataset flag survives.
- *
- * Returns true if the post was flagged.
+ * Judges one post and renders the verdict. Returns true if the post was
+ * flagged. Runs on every post every scan, so it is idempotent: the
+ * sfProcessed dataset flag short-circuits to the cached verdict. The flag
+ * survives scrolling because LinkedIn keeps post nodes rather than recycling
+ * them.
  */
 function processPost(post, current) {
-  // In the extension `current` IS the module-global settings (scanFeed passes
-  // it), so this assignment is a no-op there. It exists so notice actions —
-  // which must read the LIVE settings, not a stale closure — also work when
-  // tests drive processPost directly with their own settings object.
+  // In the extension this is already the global; the assignment lets notice
+  // actions read live settings when tests call processPost with their own.
   settings = current;
-  // Paused: judge nothing and mark nothing, so un-pausing re-judges every post.
+  // Paused: judge and mark nothing, so un-pausing re-judges every post.
   if (current.paused) return false;
   if (post.dataset.sfProcessed === 'true') return post.dataset.sfFlagged === 'true';
 
   const author = sf.getAuthor(post);
-  // SDUI can insert a listitem shell and fill it a tick later, and the
-  // author (menu aria-label) and the ad label (actor-block text node) render
-  // on independent ticks — author alone is not proof the ad label has
-  // settled. Require the text box too: by the time the post body is present,
-  // the actor block above it (where "Promoted"/"Sponsored" lives) has
-  // rendered. Marking a skeleton processed would exempt it forever — the 1.0
-  // silent-miss shape, now specific to ad detection.
+  // LinkedIn inserts an empty listitem shell and fills it later, and the author
+  // and the ad label render on separate ticks. Wait for the text box: once the
+  // body exists, the actor block with "Promoted" has rendered. Marking a
+  // skeleton processed would exempt it forever.
   if (!post.querySelector(sf.SEL.textBox)) return false;
   post.dataset.sfProcessed = 'true';
 
-  // Trusted People is an absolute override: checked before ad detection and
-  // before the mute check, so a whitelisted author's post is never hidden or
-  // flagged for ANY reason, including being marked Promoted/Boosted by
-  // LinkedIn itself.
+  // Trusted People override everything, ad labels included, so this runs first.
   if (author && current.whitelistedAuthors.includes(author)) {
     return false;
   }
 
-  // Ad detection wins over the mute check: an ad's "author" is the
-  // advertiser, not a person the reader chose to mute or not.
+  // Ads are checked before mutes: an ad's author is the advertiser, not a
+  // person the reader chose to mute.
   if (current.hidePromoted && sf.isPromoted(post)) {
     post.dataset.sfPromoted = 'true';
     countOnce(post, () => sf.record('promoted'));
@@ -86,14 +74,13 @@ function processPost(post, current) {
 
   post.dataset.sfFlagged = 'true';
   post.dataset.sfFilters = [...new Set(matches.map(m => m.filterName))].join(',');
-  // A settings change re-judges every post on the page (applySettings), so
-  // count a post the first time it is caught, not on every re-judge.
+  // applySettings re-judges every post, so count a catch only once.
   countOnce(post, () => {
     for (const m of matches) sf.record('caught', m.phrase);
     sf.markCaught();
   });
 
-  // A post the reader opened with "Show post" stays open across re-judging.
+  // A post opened with "Show post" stays open across re-judging.
   const collapsed = current.flagMode === 'collapse' && post.dataset.sfRevealed !== 'true';
   if (collapsed) post.dataset.sfCollapsed = 'true';
 
@@ -108,16 +95,15 @@ function countOnce(post, record) {
   sf.scheduleFlush();
 }
 
-// Every verdict processPost writes. Not here, so they survive a re-judge:
-// sfCaught/sfCounted (counters never count a post twice) and sfRevealed
-// (the reader's own choice).
+// Verdict flags that a re-judge clears. Deliberately absent so they survive:
+// sfCaught/sfCounted (no double counting) and sfRevealed (the reader's choice).
 const VERDICT_KEYS = ['sfProcessed', 'sfFlagged', 'sfFilters', 'sfCollapsed',
   'sfMuted', 'sfMutedCard', 'sfPromoted', 'sfBoosted'];
 
 /**
- * Re-judge every post already on the page against new settings, in place.
- * Replaces the old full-page reload: a reload threw away whatever the reader
- * was typing in LinkedIn's composer and their scroll position.
+ * Re-judges every post on the page against new settings, in place. A page
+ * reload would lose the reader's scroll position and any draft in LinkedIn's
+ * composer.
  */
 function applySettings(next) {
   settings = next;
@@ -129,16 +115,13 @@ function applySettings(next) {
   scanFeed();
 }
 
-// The one-time tip lives on a single notice: the first one rendered. Rebuilds
-// of that same post keep it; a post that left the page or is no longer
-// flagged hands it on.
+// The one-time tip shows on one notice: the first rendered. Rebuilds of that
+// post keep it; it moves on if the post leaves the page or stops being flagged.
 let hintPost = null;
 // Set by the limit stepper so the rebuild that follows reopens its popover.
 let reopen = null;
 
-/**
- * Replace whatever notice the post currently has with a fresh one.
- */
+/** Replaces the post's notice with a fresh one. */
 function renderNotice(post, matches, author, collapsed) {
   post.querySelector('[data-sf-notice]')?.remove();
   let showHint = false;
@@ -166,9 +149,8 @@ function renderNotice(post, matches, author, collapsed) {
   if (mine) { notice.sfRestore?.(); reopen = null; }
 }
 
-// One mute path, used by the pig popover's Mute link. The post the reader
-// muted from swaps its notice for a quiet card with Undo; the author's other
-// posts hide as before.
+// The only mute path (the pig popover's Mute link). The originating post swaps
+// its notice for a card with Undo; the author's other posts just hide.
 async function muteAuthor(author, post) {
   settings = sf.mute(settings, author);
   const saving = sf.save(settings);
@@ -176,7 +158,7 @@ async function muteAuthor(author, post) {
     if (sf.getAuthor(p) !== author) continue;
     p.dataset.sfMuted = 'true';
     if (p === post) continue;
-    // The same state processPost gives a muted author: no notice, not flagged.
+    // Match the state processPost gives a muted author.
     p.querySelector('[data-sf-notice]')?.remove();
     for (const k of ['sfFlagged', 'sfFilters', 'sfCollapsed']) delete p.dataset[k];
   }
@@ -191,19 +173,20 @@ async function muteAuthor(author, post) {
   await saving;
 }
 
-// Undo = unmute and re-judge, which also clears the card and every sfMuted mark.
+// Unmute and re-judge, which also clears the card and the sfMuted marks.
 function undoMute(author) {
   applySettings(sf.unmute(settings, author));
   sf.save(settings);
 }
 
 /**
- * The notice's only channel back into state.
- *
- * toggle: Show post <-> Hide post. mute: the pig popover. setLimit: the counting chip's stepper, which saves
- * at once and re-judges the page so a post that no longer qualifies un-flags.
- * openSettings: "Change in Settings" ({cat, phrase?}) or the pig popover's
- * Settings link ({panel}), forwarded to the background worker. dismissHint: the one-time tip.
+ * The notice's only channel back into state. Actions:
+ * toggle: Show post / Hide post.
+ * mute: from the pig popover.
+ * setLimit: the counting chip's stepper; saves and re-judges so a post that no
+ *   longer qualifies un-flags.
+ * openSettings: {cat, phrase?} or {panel}, forwarded to the background worker.
+ * dismissHint: the one-time tip.
  */
 function onNoticeAction(post, action, payload, matches, author) {
   if (action === 'mute') {
@@ -215,9 +198,7 @@ function onNoticeAction(post, action, payload, matches, author) {
     const collapsed = post.dataset.sfCollapsed === 'true';
 
     if (collapsed) {
-      // "Show post": this is the reader choosing to read a flagged post
-      // anyway — count it once per
-      // post, not once per toggle.
+      // The reader chose to read a flagged post anyway; count it once per post.
       delete post.dataset.sfCollapsed;
       post.dataset.sfRevealed = 'true';
       if (!post.dataset.sfCounted) {
@@ -243,8 +224,8 @@ function onNoticeAction(post, action, payload, matches, author) {
   }
 
   if (action === 'openSettings') {
-    // A tab left open across an extension update has lost its connection to
-    // the worker; sendMessage then throws, or rejects. Fail quietly.
+    // A tab left open across an extension update loses its worker connection,
+    // and sendMessage then throws or rejects. Fail quietly.
     try {
       chrome.runtime?.sendMessage?.({ type: 'sf-open-settings', ...payload })?.catch?.(() => {});
     } catch (e) { /* extension context invalidated */ }
@@ -270,18 +251,11 @@ async function init() {
 
   scanFeed();
 
-  // A MutationObserver-driven rescan was tried and dropped: LinkedIn's own
-  // React tree can throw a hydration-mismatch crash (error #418) during a
-  // live session, and when it does, our observer's callback goes silently
-  // dark — no exception on our side, it just stops being invoked, even
-  // though the feed node itself stays live and connected. Confirmed dead
-  // across two fresh extension reloads and three separate live sessions
-  // (BACKLOG.md item 10) — never fired once, while this poll alone caught
-  // 36+ posts correctly in the same sessions. A poll doesn't depend on any
-  // single observer/event-listener surviving whatever the host page does to
-  // itself, which is the actual requirement here. getPosts() is just a
-  // querySelectorAll and processPost's sfProcessed guard short-circuits
-  // already-handled posts, so a scan every 2s is cheap even on a long feed.
+  // Poll rather than observe mutations: after a React hydration error (#418)
+  // on LinkedIn's side, a MutationObserver on the feed silently stops firing
+  // even though the node stays connected. A poll survives whatever the page
+  // does to itself, and is cheap: getPosts() is one querySelectorAll and
+  // sfProcessed short-circuits handled posts.
   setInterval(scanFeed, 2000);
 }
 

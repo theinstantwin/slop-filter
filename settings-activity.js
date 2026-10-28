@@ -1,36 +1,21 @@
 /**
- * Options page, Activity panel. Classic script loaded by settings.html after settings.js,
- * so `st`, `el` and the other panels' functions are shared page globals. Under
- * Node, settings.js publishes them on globalThis before requiring this file.
+ * Options page, Activity panel. A classic script loaded after settings.js, so
+ * `st`, `el` and the other panels' functions are page globals (under Node,
+ * settings.js publishes them on globalThis first).
  */
-/* ---- Activity panel (Task 10) ----
-   The phrase→category map comes from st.settings.categories (live, as-configured), and the
-   raw counts come from st.counters (a snapshot read once on page load — see
-   readAll() below, no chrome.storage.onChanged listener per PRD).
 
-   Category totals are DERIVED (summed from that category's owned phrases),
-   never read from a stored per-category counter — the exception is
-   Promoted/Boosted, which match no phrase (a hidden ad has no rule that
-   fired), so their counts are the raw stored numbers and only rendered as a
-   row when nonzero.
-
-   activityModel is exported and pure (no DOM) so Task 10's boundary cases —
-   9-catch/30%, 10/30%, 10/29%, derived-sum, removed-phrase handling — are
-   unit-testable without a document. */
+/**
+ * Pure model for the panel (no DOM). Phrase counts come from st.counters, a
+ * snapshot read once at page load. Category totals are summed from each
+ * category's phrases, not stored. Promoted/Boosted match no phrase (a hidden ad
+ * fires no rule), so their stored counts show as rows only when nonzero.
+ * Returns { byCategory, byPhrase }.
+ */
 function activityModel(counters, categories) {
-  // phrase -> categoryName, first-match-wins in category display order. A
-  // phrase can appear in more than one category (a user could add the same
-  // text twice) — it is attributed to whichever category lists it first,
-  // matching the order categories render in the Categories panel.
-  //
-  // Keyed lowercase: rules are stored lowercase ("hot take", "#ad"), but a
-  // counter's phrase preserves the ACTUAL matched text's original casing
-  // from the post ("Hot take", "#Ad") — findMatches() is already
-  // case-insensitive (every pattern carries the 'i' flag) and never
-  // normalizes what it returns. Without lowercasing both sides here, any
-  // post that capitalized a phrase differently than the stored rule missed
-  // this lookup and fell into the same "(removed)" bucket as a genuinely
-  // deleted phrase — indistinguishable from real removal.
+  // phrase -> category name; the first category in display order wins when a
+  // phrase appears in several. Keys are lowercase: rules are stored lowercase
+  // but counters keep the post's casing ("Hot take"), and without folding a
+  // capitalized catch would land in "(removed)" like a genuinely deleted phrase.
   const owner = new Map();
   for (const cat of categories) {
     if (!cat.rules) continue; // counting categories (hashtags etc.) own no phrases
@@ -40,25 +25,19 @@ function activityModel(counters, categories) {
     }
   }
 
-  // Counting categories (Hashtag/Emoji Overload) don't have a single
-  // triggering phrase — findMatches() synthesizes one per exact count
-  // ("5 hashtags", "6 hashtags", "16 hashtags", ...), so without this every
-  // distinct count a post ever hit would fragment into its own permanent
-  // By-phrase row forever, with no way to tell they're all the same
-  // category crossing the same threshold. unitToCategory maps each
-  // category's unit ("hashtags"/"emoji") back to its name so every
-  // "<n> <unit>" counter rolls into ONE By-category total instead — the
-  // count-crossing-a-threshold shape has no natural "phrase" to show.
+  // A counting category has no single phrase: findMatches synthesizes one per
+  // exact count ("5 hashtags", "6 hashtags"), which would fragment into a
+  // permanent By-phrase row per count. Map each unit back to its category and
+  // roll every "<n> <unit>" counter into one By-category total.
   const unitToCategory = new Map();
   for (const cat of categories) {
     if (cat.counting && cat.unit) unitToCategory.set(cat.unit, cat.name);
   }
   const countingPhraseRe = /^\d+ (.+)$/;
 
-  // A phrase with no typed rule may still belong to a category: Sponsored and
-  // Labs match by built-in pattern, templates by "___" blanks. Ask the matcher
-  // which category catches the phrase's own text (every category forced on)
-  // before calling it removed.
+  // A phrase with no typed rule may still belong to a category (Sponsored and
+  // Labs match by pattern, templates by "___"). Ask the matcher with every
+  // category forced on before calling it removed.
   const matchAll = categories.filter(c => !c.counting).map(c => ({ ...c, on: true, off: [] }));
   const ownerOf = phrase => {
     const typed = owner.get(phrase.toLowerCase());
@@ -85,7 +64,7 @@ function activityModel(counters, categories) {
     const countingCategoryName = countingMatch ? unitToCategory.get(countingMatch[1]) : undefined;
     if (countingCategoryName) {
       catTotals.set(countingCategoryName, (catTotals.get(countingCategoryName) || 0) + caught);
-      continue; // no By-phrase row — see comment above unitToCategory
+      continue; // counting categories get no By-phrase row
     }
 
     const categoryName = ownerOf(phrase);
@@ -98,8 +77,7 @@ function activityModel(counters, categories) {
   byPhrase.sort((a, b) => b.caught - a.caught);
 
   const byCategory = [...catTotals].map(([name, caught]) => ({ name, caught }));
-  // Structural hides: stored counters, not derived sums — the exception to
-  // the rule above. Zero renders no row (a toggle left off is not "0 hides").
+  // Promoted/Boosted are stored counts; zero renders no row.
   if (counters.promoted) byCategory.push({ name: 'Promoted', caught: counters.promoted });
   if (counters.boosted) byCategory.push({ name: 'Boosted', caught: counters.boosted });
   byCategory.sort((a, b) => b.caught - a.caught);
@@ -107,6 +85,7 @@ function activityModel(counters, categories) {
   return { byCategory, byPhrase };
 }
 
+/** Draws the By-category bars and By-phrase rows from activityModel. */
 function renderStats(doc) {
   const model = activityModel(st.counters, st.settings.categories);
   const max = model.byCategory[0]?.caught || 1;

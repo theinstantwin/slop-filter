@@ -1,34 +1,26 @@
 /**
- * Activity writer. Its own storage key — `sfCounters`, never
- * `slopFilterSettings` (see storage.js's header: counter bumps must not
- * re-serialise the whole settings blob on every match).
- *
+ * Activity writer. Counters live under their own key, `sfCounters`, so a
+ * counter bump never re-serializes the settings blob.
  * Shape: { phrases: { [phrase]: { caught, readPast } }, promoted, boosted }.
  *
- * record() only touches an in-memory pending map — cheap, called once per
- * match on every scan. flush() is the sole place that talks to storage, and
- * it always does a read-modify-write of THIS KEY ONLY, merging its pending
- * deltas onto whatever is already stored rather than overwriting it — two
- * tabs, or two flushes in the same session, must not stomp each other's
- * counts. scheduleFlush() debounces repeated record() calls (LinkedIn's feed
- * fires a scan every ~400ms while scrolling) down to one write, and is also
- * wired to `visibilitychange` so backgrounding the tab flushes immediately
- * instead of losing whatever is pending when the tab is later discarded.
+ * record() only updates an in-memory map. flush() is the only code that
+ * touches storage: it reads this key, adds the pending deltas to what is
+ * stored, and writes back, so two tabs can't overwrite each other's counts.
+ * scheduleFlush() debounces writes (the feed scans about every 400ms while
+ * scrolling); a hidden tab flushes immediately so a discarded tab loses nothing.
  *
- * Loaded after storage.js and before notice.js (manifest.json).
+ * Loaded after storage.js and before notice.js.
  */
 
 const COUNTERS_KEY = 'sfCounters';
-// When a post was last caught: one number under its own key, so the popup's
-// pig can react to a catch from the last few seconds. Not part of sfCounters
-// (that blob is debounced to 2s and merged; this must land at once).
+// Timestamp of the latest catch, under its own key so the popup pig can react
+// within seconds. sfCounters is debounced and merged, so it can't carry this.
 const LAST_CAUGHT_KEY = 'sfLastCaughtAt';
 const LAST_CAUGHT_THROTTLE_MS = 1000;
 let lastCaughtWritten = 0;
 const DEBOUNCE_MS = 2000;
-// Blank rules ("drop a ___ below") catch a different phrase almost every
-// time, so the phrase map would grow for as long as the extension is
-// installed. Past this many, the least-caught phrases are dropped at flush.
+// Blank rules ("drop a ___ below") catch a different phrase almost every time,
+// so the map would grow without bound. Past this, flush drops the least-caught.
 const MAX_PHRASES = 500;
 
 /**
@@ -43,10 +35,10 @@ function scEmptyCounters() {
   return { phrases: {}, promoted: 0, boosted: 0 };
 }
 
-// Any stored or imported counters blob reduced to the sfCounters shape with
-// whole non-negative numbers, so a hand-edited file or a corrupted store
-// cannot break the Activity panel or poison a flush.
-/** @param {any} raw @returns {Counters} */
+/**
+ * Coerces any stored or imported blob to the sfCounters shape with whole
+ * non-negative numbers, so a hand-edited file can't break the Activity panel.
+ * @param {any} raw @returns {Counters} */
 function normalizeCounters(raw) {
   const n = v => (Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
   const phrases = {};
@@ -57,8 +49,7 @@ function normalizeCounters(raw) {
   return { phrases, promoted: n(raw && raw.promoted), boosted: n(raw && raw.boosted) };
 }
 
-// Pending in-memory deltas since the last flush. Same shape as stored
-// counters, but represents ONLY what has not yet been written.
+// Deltas since the last flush, not totals.
 let pending = scEmptyCounters();
 let timer = null;
 
@@ -68,8 +59,9 @@ function scPendingPhrase(phrase) {
 }
 
 /**
- * kind: 'caught' | 'readPast' | 'promoted' | 'boosted'. phrase required for
- * the first two. In-memory only — callers always follow with scheduleFlush().
+ * Counts one event in memory; callers follow with scheduleFlush().
+ * kind: 'caught' | 'readPast' | 'promoted' | 'boosted'. phrase is required
+ * for the first two.
  */
 function record(kind, phrase) {
   if (kind === 'caught' || kind === 'readPast') {
@@ -80,11 +72,9 @@ function record(kind, phrase) {
 }
 
 /**
- * An extension reload (dev refresh, Web Store auto-update) orphans content
- * scripts still injected in open tabs: chrome.* calls then throw "Extension
- * context invalidated." For an orphaned script the right move is a silent
- * no-op — the fresh script owns counting — so that one error is swallowed;
- * anything else still propagates.
+ * An extension reload orphans content scripts already injected in open tabs,
+ * and their chrome.* calls throw "Extension context invalidated". The new
+ * script owns counting, so that one error is swallowed; others propagate.
  */
 function scContextDead(err) {
   return /context invalidated/i.test(err && err.message || '');
@@ -102,11 +92,7 @@ async function scReadStored() {
   return normalizeCounters(blob[COUNTERS_KEY]);
 }
 
-/**
- * Read-modify-write of sfCounters ONLY, merging the pending deltas onto
- * whatever is currently stored, then clearing pending. Never touches
- * slopFilterSettings.
- */
+/** Adds the pending deltas to the stored counters, writes them, clears pending. */
 async function flush() {
   const current = await scReadStored();
   const merged = {
@@ -165,7 +151,7 @@ async function readAll() {
   return scReadStored();
 }
 
-// Guarded: requiring this file under Node (no `document`) must not throw.
+// Guarded so the file loads under Node tests, which have no `document`.
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flush();

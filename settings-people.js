@@ -1,21 +1,17 @@
 /**
- * Options page, Muted and Trusted People panels. Classic script loaded by settings.html after settings.js,
- * so `st`, `el` and the other panels' functions are shared page globals. Under
- * Node, settings.js publishes them on globalThis before requiring this file.
+ * Options page, Muted and Trusted People panels. A classic script loaded after
+ * settings.js, so `st`, `el` and the other panels' functions are page globals
+ * (under Node, settings.js publishes them on globalThis first).
+ *
+ * Both panels render from st.settings on every change (the array on screen is
+ * the stored one) and persist through st.persist().
  */
-/* ---- Muted people panel ----
-   Same as the Categories panel: the array under render IS storage — every mutation goes through
-   st.mute()/st.unmute() into a cloned settings object, followed by
-   st.persist(), and renderMutes() always reads st.settings.mutedAuthors
-   fresh.
 
-   The 6-second "Unmuted · Undo" row is page-local UI state only: the timer
-   handle and the "this row is showing its undo state" flag never touch
-   chrome.storage — unmuting has already persisted by the time the row
-   flips, and Undo re-persists via mute(). If Undo fires, clearTimeout stops
-   the pending full re-render; if the timer fires first, it just calls
-   renderMutes() again to drop back to the normal list (a no-op if the row
-   already navigated away, guarded by `row.isConnected`). */
+/**
+ * Muted people panel. Removing a name swaps the row for "Unmuted / Undo" for
+ * six seconds. That state is page-local; the unmute is already saved, and Undo
+ * saves again.
+ */
 function renderMutes(doc) {
   const host = doc.getElementById('mutes');
   host.textContent = '';
@@ -26,8 +22,7 @@ function renderMutes(doc) {
     return;
   }
 
-  // Alphabetical: this is a lookup, not a workspace — there is no insertion
-  // order worth preserving the way there is with phrase chips.
+  // Alphabetical: it's a lookup list, so insertion order carries no meaning.
   const sorted = [...st.settings.mutedAuthors].sort((a, b) => a.localeCompare(b));
   for (const name of sorted) host.appendChild(renderMute(doc, name));
 }
@@ -41,10 +36,8 @@ function renderMute(doc, name) {
     st.settings = st.unmute(st.settings, name);
     await st.persist();
 
-    // Undo rather than a confirmation. Unmuting is harmless and reversible,
-    // so a dialog would be friction — but on a long list an accidental click
-    // loses the name itself, which is the part that can't be recovered
-    // without retyping it.
+    // Undo instead of a confirm dialog: unmuting is reversible, but on a long
+    // list a misclick loses the name, which would have to be retyped.
     row.classList.add('undone');
     row.textContent = '';
     row.appendChild(el('div', 'mute-name gone', name));
@@ -64,12 +57,10 @@ function renderMute(doc, name) {
   return row;
 }
 
-/* ---- Trusted People panel ----
-   Mirrors renderMutes/renderMute exactly (see the comment above renderMutes
-   for the persistence and Undo-row rationale, which applies identically
-   here), with one addition: there is no in-feed action that adds a Trusted
-   entry, so this panel also owns a text input + Add button that Muted
-   people does not need. */
+/**
+ * Trusted People panel. Mirrors the Muted panel, plus a text input and Add
+ * button, since nothing in the feed adds a Trusted entry.
+ */
 function renderTrusted(doc) {
   const host = doc.getElementById('trusted');
   host.textContent = '';
@@ -120,11 +111,8 @@ function wireTrustedAdd(doc) {
     const name = input.value.trim();
     errorEl.textContent = '';
     if (!name) return;
-    // allowAuthor() throws if `name` is already in mutedAuthors (storage.js,
-    // Task 1) — that guard is the actual duplicate check; this catch only
-    // decides how the error surfaces on this specific page. Input is
-    // deliberately NOT cleared on error so the user can edit and retry
-    // without retyping the whole name.
+    // allowAuthor throws if the name is muted; show the message and keep the
+    // input so the user can edit and retry.
     try {
       st.settings = st.allowAuthor(st.settings, name);
     } catch (e) {

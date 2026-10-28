@@ -64,18 +64,12 @@
       </div>
     </section>
 
-    <!-- Structural toggles get their own panel: they are not categories —
-         nobody WROTE this content into the feed; it is there because a company
-         paid for the spot. Detected from LinkedIn's own actor-block label
-         (dom.js isPromoted/isBoosted), so there are no phrases and nothing for
-         Try a post to match.
-
-         Copy rule for this panel: describe placement neutrally — "a company
-         paid for this spot" — in LinkedIn's own label vocabulary. Never
-         "ads", never "blocking". Two species, two defaults (see PRD): plain
-         "Promoted" hides by default; "Promoted • Partnership with <brand>"
-         is a real person's post and opts in — the Humble Brag argument
-         applied to structure. -->
+    <!-- Promoted content is not a category: it is detected from LinkedIn's own
+         actor-block label (dom.js isPromoted/isBoosted), so there are no phrases
+         for Try a post to match. Copy describes placement neutrally in
+         LinkedIn's label vocabulary ("a company paid for this spot"), never
+         "ads" or "blocking". Plain "Promoted" hides by default; "Promoted by /
+         Partnership with <brand>" is a real person's post, so it is opt-in. -->
     <section class="panel" id="panel-promoted">
       <h2>Promoted content</h2>
       <p class="sub">

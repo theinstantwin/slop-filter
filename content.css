@@ -1,11 +1,9 @@
-/* Slop Filter — host-level only. Notice styling lives in the Shadow DOM. */
+/* Host-page rules only. The notice is styled inside its shadow root (notice.js). */
 
-/* Rosario 700, subsetted to the characters the wordmark uses (~6.5KB) and
-   inlined so the notice renders offline and makes no third-party request from
-   inside LinkedIn. Rosario is free under the OFL; its license ships as OFL-Rosario.txt.
-
-   Declared here rather than in notice.js because @font-face must live in the
-   document to load — it still applies inside the shadow root. */
+/* Rosario 700, subsetted to the wordmark's characters (about 6.5KB) and inlined
+   so the notice renders offline and makes no third-party request from LinkedIn.
+   Licensed under the OFL (OFL-Rosario.txt). Declared here because @font-face
+   only loads from the document; it still applies inside the shadow root. */
 @font-face {
   font-family: 'SlopFilter Display';
   src: url(data:font/woff2;base64,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) format('woff2');
@@ -23,50 +21,24 @@
   overflow: visible !important;
 }
 
-/* NOT display:none, and NOT max-height:0 — the max-height attempt was
-   also tried and reverted. display:none pulls the element out of layout entirely, and
-   LinkedIn's own JS appears to skip attaching its "...more" truncation click
-   handler to text it can't measure (offsetHeight/getBoundingClientRect
-   return 0 on a display:none ancestor) — so a collapsed-then-later-unhidden
-   post loses "See more" until the user scrolls away and back. A first fix
-   attempt (visibility:hidden + max-height:0 + overflow:hidden, keeping the
-   element in normal flow) traded that bug for a worse one: LinkedIn's
-   SDUI post bodies are flex/grid-heavy, and forcing max-height:0 on a flex
-   item does not reliably collapse the space its siblings/ancestors still
-   reserve for it — some posts rendered as a large blank box instead of a
-   thin collapsed strip.
-   This version keeps the element in NORMAL, UNCONSTRAINED layout flow (no
-   height/overflow/visibility overrides at all — LinkedIn's JS measures it
-   exactly as it would an ordinary visible post) and instead moves it
-   off-screen with absolute positioning, so it never occupies visual space
-   in the post's own box regardless of its internal flex/grid layout. The
-   post itself needs `position: relative` (added below) so the absolutely-
-   positioned child doesn't escape into the page's broader layout.
+/* Collapsed and muted posts move their content off-screen instead of using
+   display:none or max-height:0.
+   - display:none: LinkedIn skips attaching its "...more" handler to text it
+     can't measure, so a re-shown post loses "See more".
+   - max-height:0 on flex/grid items doesn't reliably collapse the space
+     siblings reserve, leaving some posts as a large blank box.
+   Absolute positioning keeps the element in normal layout flow (LinkedIn can
+   still measure it) while taking up no visual space. The post is made
+   position:relative below to contain it.
 
-   DIRECT-CHILD selector (`>`) is not enough: LinkedIn's SDUI wraps the real
-   content in one or more `display: contents` divs — an element that
-   generates no box of its own, so its children render as if they were
-   direct children of the grandparent. `> *` only reaches the contents
-   wrapper (which has nothing to position, since it has no box), never the
-   actual content one level deeper, which rendered at full size, uncollapsed
-   and unaffected. Switched `>` to a descendant combinator (space) so the
-   rule reaches through any number of display:contents wrapper levels.
-   Safe against also catching the notice's own internal markup: the notice
-   is Shadow DOM (attachShadow in notice.js) — a light-DOM descendant
-   selector from content.css cannot pierce a shadow boundary at all, so
-   `:not([data-sf-notice])` excluding the shadow HOST is the only exclusion
-   this ever needed.
+   The selector is a descendant, not a child, combinator: LinkedIn wraps
+   content in `display: contents` divs that have no box, so `> *` would miss
+   the real content. Only the notice host needs excluding; its internals are
+   in a shadow root that light-DOM selectors can't reach.
 
-   visibility:hidden rides along (added 2026-09-01) for keyboard and
-   screen-reader users: off-screen content is still in the tab order and the
-   accessibility tree, so a collapsed post left ~25 invisible tab stops
-   (author link, Like, Comment, ...) between its notice and the next post.
-   visibility:hidden drops them from both without touching layout —
-   offsetHeight/getBoundingClientRect still report real values, so this does
-   NOT reintroduce the display:none measurement bug above (the failed first
-   attempt's problem was max-height:0 on flex items, not visibility).
-   Live-verified: collapsed → Show post → body renders, focus skips hidden
-   content while collapsed. */
+   visibility:hidden also removes off-screen content from the tab order and
+   accessibility tree (a collapsed post otherwise left about 25 invisible tab
+   stops). Unlike display:none it keeps real measurements. */
 [data-sf-collapsed="true"],
 [data-sf-muted="true"] {
   position: relative !important;
