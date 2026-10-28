@@ -60,7 +60,10 @@ const LABS_PATTERNS = {
   // whole category is real regex end to end rather than a mix — deliberate:
   // bare "Sponsored" as ordinary text ("Sponsored a local team") must NOT
   // match; only the hashtag/partnership-phrase forms are a disclosure.
-  sponsored: /#ad\b|#sponsored|#paidpartnership|partnering with|proud to partner/gi,
+  // "partnering with" counts as an announcement: after I'm/we're/am/are/is/
+  // be/been, or opening a sentence. As the object of a preposition ("talks
+  // with H&M about partnering with SFF") it is a topic, not a disclosure.
+  sponsored: /#ad\b|#sponsored|#paidpartnership|(?<=(?:^|[.!?\n]\s*|\b(?:i[’']?m|we[’']?re|am|are|is|be|been)\s))partnering with|proud to partner/gi,
 };
 
 // SEED_CATEGORIES: default display order, names, defs, rules, and on-flags.
