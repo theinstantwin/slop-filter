@@ -327,6 +327,17 @@ input[type=text].name-inline {
   padding-right: 8px; color: var(--text-2); cursor: help;
 }
 .rule.locked:hover { border-color: var(--border-strong); }
+/* Quick tooltip for built-in templates. A native title waits about a second. */
+.rule.locked { position: relative; }
+.rule.locked[data-tip]::after {
+  content: attr(data-tip); position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 10;
+  width: max-content; max-width: 280px; padding: 7px 10px; border-radius: 8px;
+  background: var(--text); color: var(--bg); font-size: 12px; line-height: 1.45; white-space: normal;
+  box-shadow: 0 4px 14px rgba(0,0,0,.15); pointer-events: none;
+  opacity: 0; transform: translateY(2px); transition: opacity .12s ease .15s, transform .12s ease .15s;
+}
+.rule.locked:hover::after, .rule.locked:focus-within::after { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .rule.locked[data-tip]::after { transition: none; } }
 .rule .lock { flex: none; width: 10px; height: 10px; color: var(--text-3); opacity: .7; }
 .rule-label { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; min-width: 0; }
 .rule-label input { margin: 0; width: 14px; height: 14px; accent-color: var(--accent); flex: none; }

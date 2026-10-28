@@ -508,7 +508,9 @@ function renderRule(doc, cat, txt) {
   r.appendChild(lab);
 
   if (shape) {
-    r.title = 'Built-in sentence template — the blanks match anything. Cannot be edited.';
+    // Custom tooltip (CSS, data-tip): the native title tooltip waits ~1s to appear.
+    r.dataset.tip = 'Catches every version of this line, whatever fills the blanks. It’s built in, so you can switch it off but not edit it.';
+    r.setAttribute('aria-description', r.dataset.tip);
     const lock = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
     lock.setAttribute('class', 'lock');
     lock.setAttribute('viewBox', '0 0 10 10');
