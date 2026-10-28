@@ -104,6 +104,17 @@ function renderFilters(doc, settings) {
     const nameEl = doc.createElement('div');
     nameEl.className = 'frow-n';
     nameEl.textContent = cat.name;
+    // Small info mark with the category's description, the same text Settings
+    // shows (and the user may have edited there). Quick CSS tooltip, not title.
+    if (cat.def) {
+      const info = doc.createElement('button');
+      info.type = 'button';
+      info.className = 'info';
+      info.textContent = 'i';
+      info.dataset.tip = cat.def;
+      info.setAttribute('aria-label', `About ${cat.name}: ${cat.def}`);
+      nameEl.appendChild(info);
+    }
     main.appendChild(nameEl);
     row.appendChild(main);
 

@@ -94,7 +94,7 @@ button{font-family:inherit}
   .pig.react *,.pig.asleep .z{animation:none!important}
   .pig.asleep .z{opacity:1}
   .pig .bg{transition:none}
-  .sw span,.sw span::after,.hsw-track i,.hsw-track i::after{transition:none}
+  .sw span,.sw span::after,.hsw-track i,.hsw-track i::after,.info::after{transition:none}
 }
 
 /* sections */
@@ -116,7 +116,17 @@ button{font-family:inherit}
 /* filters */
 .frow{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:13.5px}
 .frow-m{flex:1;min-width:0}
-.frow-n{color:var(--ink)}
+.frow-n{color:var(--ink);display:flex;align-items:center;gap:6px}
+.info{position:relative;flex:none;width:14px;height:14px;border-radius:50%;border:1px solid var(--ink3);background:none;color:var(--ink3);font:600 9.5px/12px Georgia,serif;font-style:italic;text-align:center;padding:0;cursor:help}
+.info:hover,.info:focus-visible{border-color:var(--blue);color:var(--blue);outline:none}
+.info::after{
+  content:attr(data-tip);position:absolute;left:-8px;bottom:calc(100% + 7px);z-index:10;
+  width:max-content;max-width:230px;padding:7px 10px;border-radius:8px;
+  background:#1d1d1f;color:#FBFAF8;font:400 12px/1.45 var(--li-font);font-style:normal;text-align:left;white-space:normal;
+  box-shadow:0 4px 14px rgba(0,0,0,.15);pointer-events:none;
+  opacity:0;transform:translateY(2px);transition:opacity .12s ease .15s,transform .12s ease .15s;
+}
+.info:hover::after,.info:focus-visible::after{opacity:1;transform:none}
 .thr{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink3)}
 .thr button{
   display:inline-grid;place-items:center;width:20px;height:20px;
