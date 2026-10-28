@@ -849,9 +849,32 @@ function activityModel(counters, categories) {
   }
   const countingPhraseRe = /^\d+ (.+)$/;
 
+  // A phrase with no typed rule may still belong to a category: Sponsored and
+  // Labs match by built-in pattern, templates by "___" blanks. Ask the matcher
+  // which category catches the phrase's own text (every category forced on)
+  // before calling it removed.
+  const matchAll = categories.filter(c => !c.counting).map(c => ({ ...c, on: true, off: [] }));
+  const ownerOf = phrase => {
+    const typed = owner.get(phrase.toLowerCase());
+    if (typed) return typed;
+    const hit = st.findMatches ? st.findMatches(phrase, { categories: matchAll })[0] : null;
+    return hit ? hit.filterName : '(removed)';
+  };
+
+  // Counters keep the post's own casing ("#ad", "#Ad"); fold them into one row,
+  // shown in whichever casing was caught most.
+  const folded = new Map();
+  for (const [phrase, { caught, readPast }] of Object.entries(counters.phrases || {})) {
+    const key = phrase.toLowerCase();
+    const f = folded.get(key);
+    if (!f) { folded.set(key, { phrase, caught, readPast, top: caught }); continue; }
+    if (caught > f.top) { f.phrase = phrase; f.top = caught; }
+    f.caught += caught; f.readPast += readPast;
+  }
+
   const catTotals = new Map();
   const byPhrase = [];
-  for (const [phrase, { caught, readPast }] of Object.entries(counters.phrases || {})) {
+  for (const { phrase, caught, readPast } of folded.values()) {
     const countingMatch = phrase.match(countingPhraseRe);
     const countingCategoryName = countingMatch ? unitToCategory.get(countingMatch[1]) : undefined;
     if (countingCategoryName) {
@@ -859,7 +882,7 @@ function activityModel(counters, categories) {
       continue; // no By-phrase row — see comment above unitToCategory
     }
 
-    const categoryName = owner.get(phrase.toLowerCase()) || '(removed)';
+    const categoryName = ownerOf(phrase);
     if (categoryName !== '(removed)') {
       catTotals.set(categoryName, (catTotals.get(categoryName) || 0) + caught);
     }
