@@ -21,14 +21,15 @@ Every "let that sink in" a chatbot writes today, it learned from a person who wr
 ## Here's how it works
 
 - **Say goodbye to noise.** All the AI and human slop disappears, and what you want to see comes back into the feed.
-- **On-device analysis.** Every post is read right in your browser, and each flagged one shows the exact phrase that caught it.
+- **On-device analysis.** Every post is read right in your browser. Open a flagged one and it lists exactly why it was caught, with a link to that rule in Settings.
 - **Ultimate personalization.** Edit any phrase, build your own categories, and choose whose posts always come through.
 - **Resurface what's valuable.** With the slop out of the way, real updates from the people you know stand out again.
+- **Pause anytime.** One switch in the toolbar popup turns the filter off and back on. The pig goes to sleep while it's paused.
 - **Nothing leaves your browser.** No account, no tracking, no AI, no server.
 
 The filter reads every post as your feed loads and pulls out the slop before you have to wade through it. What's left is the reason you joined LinkedIn in the first place. The people you know and the work they're proud of. Install it once and your feed stays clean for good. (Yep, you can even get rid of all those long emoji posts.)
 
-![A flagged post opened up, with its receipt of matched phrases](.github/readme/receipt-pig.png)
+![A flagged post opened up, with the reasons it was caught](.github/readme/receipt-pig.png)
 
 ## Install
 
@@ -54,11 +55,13 @@ You know these posts. You've scrolled past thousands of them. You've liked a few
 - **Emoji Overload** (off to start): five or more
 - **Humble Brag** (off to start): "humbled to announce"
 
-Every setting is yours to change. Add phrases, cut phrases, or build a category of your own. Switch categories on and off, and decide how many of those obnoxious emoji a post gets before it's flagged.
+Every setting is yours to change. Add phrases, switch off the ones you don't mind without deleting them, or build a category of your own. Switch categories on and off, and decide how many of those obnoxious emoji a post gets before it's flagged. Hover the Emoji or Hashtag tag on any flagged post to change that number right there.
 
-Best of all, you can mute people. It happens to everyone: the same dozen accounts posting and commenting on each other until they're all your feed shows you. Mute the regulars and their posts stop showing up.
+Best of all, you can mute people. It happens to everyone: the same dozen accounts posting and commenting on each other until they're all your feed shows you. Hover the pig on one of their flagged posts, hit Mute, and their posts stop showing up. Changed your mind? Undo is right there, and Settings keeps the full list.
 
 ## Make it yours
+
+Click the pig in Chrome's toolbar for quick settings: pause the filter, choose whether flagged posts collapse or stay visible with a notice, switch categories on and off, and hover the **i** next to any category to see what it catches. Everything else lives in Settings.
 
 ![Slop Filter settings: Categories, Trusted People and Activity](.github/readme/settings-pig.png)
 
