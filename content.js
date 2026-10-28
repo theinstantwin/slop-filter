@@ -175,7 +175,21 @@ function renderNotice(post, matches, author, collapsed) {
  * resolving one means moving that category's threshold, never allowlisting
  * a synthetic "11 emoji" entry the counting matcher would ignore.
  */
+// One mute path for the ··· menu and the notice's Mute button.
+async function muteAuthor(author) {
+  settings = sf.mute(settings, author);
+  await sf.save(settings);
+  for (const p of sf.getPosts()) {
+    if (sf.getAuthor(p) === author) p.dataset.sfMuted = 'true';
+  }
+}
+
 function onNoticeAction(post, action, payload, matches, author) {
+  if (action === 'mute') {
+    muteAuthor(payload);
+    return;
+  }
+
   if (action === 'toggle') {
     const collapsed = post.dataset.sfCollapsed === 'true';
 
@@ -291,13 +305,7 @@ async function init() {
         filterNames: open ? (open.dataset.sfFilters || '').split(',').filter(Boolean) : [],
       };
     },
-    onMute: async author => {
-      settings = sf.mute(settings, author);
-      await sf.save(settings);
-      for (const p of sf.getPosts()) {
-        if (sf.getAuthor(p) === author) p.dataset.sfMuted = 'true';
-      }
-    },
+    onMute: muteAuthor,
     onReadAnyway: () => {
       const open = document.querySelector('[data-sf-open-post]');
       if (!open) return;

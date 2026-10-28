@@ -126,6 +126,11 @@ const CSS = `
   font-size:11px; color:rgba(0,0,0,.56); padding:5px 10px 6px;
   border-top:1px solid rgba(0,0,0,.08);
 }
+.mute {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  font-size:12px; color:rgba(0,0,0,.7); padding:6px 10px;
+  border-top:1px solid rgba(0,0,0,.08);
+}
 `;
 
 /* The pig badge: the logo's pig mark, viewBox cropped to the
@@ -259,6 +264,22 @@ function buildNotice({ matches, author, collapsed = true, onAction = () => {} })
     scope.textContent =
       'Allowing a phrase allows it everywhere, from every author. Raising a limit changes it in Settings.';
     receipt.appendChild(scope);
+
+    // Mute lives here as well as the ··· menu: testers could not find it there.
+    if (author) {
+      const mute = document.createElement('div');
+      mute.className = 'mute';
+      const q = document.createElement('span');
+      q.textContent = `Hide every post from ${author}?`;
+      mute.appendChild(q);
+      const btn = document.createElement('button');
+      btn.className = 'drop';
+      btn.dataset.mute = 'true';
+      btn.textContent = 'Mute';
+      btn.addEventListener('click', () => onAction('mute', author));
+      mute.appendChild(btn);
+      receipt.appendChild(mute);
+    }
 
     inner.appendChild(receipt);
     detail.appendChild(inner);

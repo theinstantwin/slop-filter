@@ -132,8 +132,8 @@ const SEED_CATEGORIES = [
             "blessed to announce", "honored to share"] },
   // Labs — hardcoded regex patterns, off by default, no rules array. See
   // LABS_PATTERNS above.
-  { id: 'followVerbAlternation', name: 'Follow verb variants',
-    def: 'Different verbs pitching the same follow (hit/click/tap/smash/give)',
+  { id: 'followVerbAlternation', name: 'Follow Bait',
+    def: 'Hides posts that beg for a follow, whatever the verb: hit, click, tap, smash or give follow',
     on: false, labs: true },
   { id: 'commentReplyGating', name: 'Comment/Reply Gate',
     def: "Comment or reply with a word to unlock something, beyond the built-in phrasing",

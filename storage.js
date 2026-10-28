@@ -145,6 +145,13 @@ function upgradeToV2(stored, SEED = _SEED) {
         const seed = SEED.find(s => s.id === 'sponsored');
         if (seed) return { ...seedCategories([seed])[0], on: !!c.on };
       }
+      // Labs categories are not editable, so their name and definition always
+      // come from the seed: a rename (Follow verb variants -> Follow Bait)
+      // reaches settings saved before it.
+      if (c.labs) {
+        const seed = SEED.find(s => s.id === c.id);
+        if (seed) return { ...c, name: seed.name, def: seed.def };
+      }
       return { ...c, rules: c.rules ? [...c.rules] : undefined };
     });
     const seenIds = new Set(categories.map(c => c.id));
