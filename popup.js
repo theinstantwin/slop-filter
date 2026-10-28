@@ -21,11 +21,7 @@ const pf = (typeof module !== 'undefined' && typeof require !== 'undefined')
 // Not required from counters.js: that file also runs content-script setup.
 const LAST_CAUGHT_KEY = 'sfLastCaughtAt';
 const CAUGHT_WINDOW_MS = 5000;   // a catch this recent makes the pig react on open
-const REACT_MS = 1600;           // two twitches, then settle back to "Watching"
-
-const LABEL_ON = 'Watching your feed';
-const LABEL_CAUGHT = 'Caught one';
-const LABEL_PAUSED = 'Paused';
+const REACT_MS = 1600;           // two twitches, then the pig settles
 
 const FLAG_HINTS = {
   collapse: 'Collapsed posts sit behind a Show post button.',
@@ -59,7 +55,8 @@ function pigState(settings, caughtAt, now) {
   return 'awake';
 }
 
-/** Draws the header pig, status label and pause switch for a state. */
+/** Draws the header pig and pause switch for a state. The pig and the
+    switch say whether it is on; there is no separate status text. */
 function renderStatus(doc, state) {
   const btn = doc.getElementById('pig-toggle');
   btn.innerHTML = POPUP_PIG; // static constant, no page data
@@ -74,8 +71,6 @@ function renderStatus(doc, state) {
   }
   const swl = doc.getElementById('switch-label');
   if (swl) swl.textContent = on ? 'On' : 'Paused';
-  doc.getElementById('status').textContent =
-    state === 'asleep' ? LABEL_PAUSED : state === 'react' ? LABEL_CAUGHT : LABEL_ON;
 }
 
 /** After the twitch finishes, drop back to the resting awake pig. */
@@ -83,7 +78,6 @@ function settleStatus(doc) {
   const svg = doc.querySelector('#pig-toggle svg');
   if (!svg || !svg.classList.contains('react')) return;
   svg.classList.remove('react');
-  doc.getElementById('status').textContent = LABEL_ON;
 }
 
 function renderFlagHint(doc, mode) {
