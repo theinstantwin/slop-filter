@@ -21,6 +21,12 @@
  */
 
 const COUNTERS_KEY = 'sfCounters';
+// When a post was last caught: one number under its own key, so the popup's
+// pig can react to a catch from the last few seconds. Not part of sfCounters
+// (that blob is debounced to 2s and merged; this must land at once).
+const LAST_CAUGHT_KEY = 'sfLastCaughtAt';
+const LAST_CAUGHT_THROTTLE_MS = 1000;
+let lastCaughtWritten = 0;
 const DEBOUNCE_MS = 2000;
 // Blank rules ("drop a ___ below") catch a different phrase almost every
 // time, so the phrase map would grow for as long as the extension is
@@ -126,6 +132,20 @@ function scheduleFlush() {
   timer = setTimeout(() => { flush(); }, DEBOUNCE_MS);
 }
 
+/** Stamps "a post was caught just now". At most one write a second. */
+function markCaught() {
+  const now = Date.now();
+  if (now - lastCaughtWritten < LAST_CAUGHT_THROTTLE_MS) return;
+  lastCaughtWritten = now;
+  if (typeof chrome === 'undefined' || !chrome.storage) return;
+  try {
+    const p = chrome.storage.local.set({ [LAST_CAUGHT_KEY]: now });
+    if (p && p.catch) p.catch(() => {});
+  } catch (err) {
+    if (!scContextDead(err)) throw err;
+  }
+}
+
 /** For the settings Activity panel. */
 async function readAll() {
   return scReadStored();
@@ -142,8 +162,8 @@ if (typeof document !== 'undefined') {
 // single uniquely-named binding — `sc` collides with nothing dom/filters/
 // storage declare, so counters.js is safe to load ahead of notice/menu/
 // content in the shared content-script scope.
-const sc = { record, flush, scheduleFlush, readAll };
+const sc = { record, flush, scheduleFlush, readAll, markCaught };
 
 if (typeof module !== 'undefined') {
-  module.exports = { record, flush, scheduleFlush, readAll, MAX_PHRASES };
+  module.exports = { record, flush, scheduleFlush, readAll, markCaught, LAST_CAUGHT_KEY, MAX_PHRASES };
 }

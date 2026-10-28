@@ -57,6 +57,8 @@ function processPost(post, current) {
   // which must read the LIVE settings, not a stale closure — also work when
   // tests drive processPost directly with their own settings object.
   settings = current;
+  // Paused: judge nothing and mark nothing, so un-pausing re-judges every post.
+  if (current.paused) return false;
   if (post.dataset.sfProcessed === 'true') return post.dataset.sfFlagged === 'true';
 
   const author = sf.getAuthor(post);
@@ -107,7 +109,10 @@ function processPost(post, current) {
   post.dataset.sfFilters = [...new Set(matches.map(m => m.filterName))].join(',');
   // A settings change re-judges every post on the page (applySettings), so
   // count a post the first time it is caught, not on every re-judge.
-  countOnce(post, () => { for (const m of matches) sf.record('caught', m.phrase); });
+  countOnce(post, () => {
+    for (const m of matches) sf.record('caught', m.phrase);
+    sf.markCaught();
+  });
 
   // A post the reader opened with "Show post" stays open across re-judging.
   const collapsed = current.flagMode === 'collapse' && post.dataset.sfRevealed !== 'true';
@@ -164,7 +169,11 @@ function renderNotice(post, matches, author, collapsed) {
     }
   }
   const mine = reopen && reopen.post === post ? reopen : null;
+  // The pig twitches the first time a post's notice renders, never on a rebuild.
+  const twitch = post.dataset.sfTwitched !== 'true';
+  post.dataset.sfTwitched = 'true';
   const notice = sf.buildNotice({
+    twitch,
     matches,
     author,
     collapsed,

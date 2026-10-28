@@ -5,7 +5,44 @@
  * On upgrade, the handler is called with reason='update' and does nothing.
  */
 
+// The toolbar icon is static: red pig when filtering, grey eyes-shut pig when
+// paused. It never animates. The worker has no storage.js, so it reads the
+// settings blob directly (same key as storage.js's STORAGE_KEY).
+const SETTINGS_KEY = 'slopFilterSettings';
+
+function iconPaths(paused) {
+  const stem = paused ? 'icons/icon-paused-' : 'icons/icon-';
+  const out = {};
+  for (const n of [16, 32, 48, 128]) out[n] = stem + n + '.png';
+  return out;
+}
+
+function applyIcon(paused) {
+  if (typeof chrome === 'undefined' || !chrome.action || !chrome.action.setIcon) return;
+  try {
+    const p = chrome.action.setIcon({ path: iconPaths(!!paused) });
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) { /* worker shutting down; the next event sets it again */ }
+}
+
+async function syncIconFromStorage() {
+  if (typeof chrome === 'undefined' || !chrome.storage) return;
+  let blob = {};
+  try { blob = await chrome.storage.local.get([SETTINGS_KEY]); } catch (e) { return; }
+  applyIcon(blob[SETTINGS_KEY] && blob[SETTINGS_KEY].paused === true);
+}
+
+function onStorageChangedHandler(changes, area) {
+  if (area !== 'local' || !changes || !changes[SETTINGS_KEY]) return;
+  const next = changes[SETTINGS_KEY].newValue;
+  const before = changes[SETTINGS_KEY].oldValue;
+  const paused = !!(next && next.paused === true);
+  if (before && (before.paused === true) === paused) return;
+  applyIcon(paused);
+}
+
 function onInstalledHandler(details) {
+  syncIconFromStorage();
   if (details.reason === 'install') {
     if (typeof chrome !== 'undefined' && chrome.storage) {
       chrome.storage.local.set({
@@ -61,9 +98,13 @@ async function onMessageHandler(msg, sender) {
 if (typeof chrome !== 'undefined' && chrome.runtime) {
   chrome.runtime.onInstalled.addListener(onInstalledHandler);
   chrome.runtime.onMessage.addListener(onMessageHandler);
+  chrome.runtime.onStartup?.addListener(syncIconFromStorage);
+  chrome.storage?.onChanged?.addListener(onStorageChangedHandler);
+  syncIconFromStorage(); // every worker wake-up, so the icon never drifts
 }
 
 // Export for Node tests.
 if (typeof module !== 'undefined') {
-  module.exports = { onInstalledHandler, onMessageHandler, settingsHash };
+  module.exports = { onInstalledHandler, onMessageHandler, settingsHash,
+    onStorageChangedHandler, syncIconFromStorage, iconPaths };
 }

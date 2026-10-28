@@ -76,6 +76,7 @@ function buildDefaults(SEED) {
     allowedPhrases: [],
     mutedAuthors: [],
     whitelistedAuthors: [],
+    paused: false,                   // popup "Pause filtering": judge and hide nothing
     noticeHintSeen: false,           // the one-time pig/tag tip, dismissed forever
     // No stats here. A 1.0-era { hidden, allowed } tally lived in this blob with
     // a reader and no writer — a permanent 0 indistinguishable from the filter
@@ -214,6 +215,7 @@ function upgradeToV2(stored, SEED = _SEED) {
     allowedPhrases: lifted,
     mutedAuthors: Array.isArray(stored.mutedAuthors) ? stored.mutedAuthors.slice() : [],
     whitelistedAuthors: Array.isArray(stored.whitelistedAuthors) ? stored.whitelistedAuthors.slice() : [],
+    paused: stored.paused === true,
     noticeHintSeen: stored.noticeHintSeen === true,
   };
 }

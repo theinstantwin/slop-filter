@@ -142,7 +142,16 @@ const CSS = `
 .anchor[data-trigger-pig] [data-trigger] { border-radius:50%; display:block; }
 .anchor[data-trigger-pig][data-open="true"] [data-trigger] { box-shadow:0 0 0 3px #EFCFC8; }
 .anchor[data-open="true"] .chip { background:#E6BAB1; }
+/* The pig twitches snout and ears twice, once, the first time a notice renders. */
+.glyph svg { overflow:visible; }
+.react .snout { animation:sf-snout .5s ease-in-out 2; transform-origin:64px 73px; transform-box:view-box; }
+.react .earL { animation:sf-earL .5s ease-in-out 2; transform-origin:44px 40px; transform-box:view-box; }
+.react .earR { animation:sf-earR .5s ease-in-out 2; transform-origin:84px 40px; transform-box:view-box; }
+@keyframes sf-snout { 0%,100% { transform:none; } 30% { transform:translateY(-2px) scaleX(1.08); } 60% { transform:translateY(1px) scaleX(.96); } }
+@keyframes sf-earL { 0%,100% { transform:none; } 40% { transform:rotate(-12deg); } }
+@keyframes sf-earR { 0%,100% { transform:none; } 40% { transform:rotate(12deg); } }
 @media (prefers-reduced-motion: reduce) {
+  .react * { animation:none !important; }
   .detail, .why { animation:none; }
   .wrap { transition:none; }
 }
@@ -154,15 +163,16 @@ const PIG_BADGE =
   '<svg viewBox="16 16 96 96" width="22" height="22">' +
   '<circle cx="64" cy="64" r="48" fill="#C62D18"/>' +
   '<g transform="translate(64 64) scale(.9) translate(-64 -59)">' +
-  '<path d="M36 50 Q30 34 36 27 Q44 26 56 38 Z" fill="#FEFDFB" stroke="#FEFDFB" stroke-width="4" stroke-linejoin="round"/>' +
-  '<path d="M92 50 Q98 34 92 27 Q84 26 72 38 Z" fill="#FEFDFB" stroke="#FEFDFB" stroke-width="4" stroke-linejoin="round"/>' +
+  '<path class="earL" d="M36 50 Q30 34 36 27 Q44 26 56 38 Z" fill="#FEFDFB" stroke="#FEFDFB" stroke-width="4" stroke-linejoin="round"/>' +
+  '<path class="earR" d="M92 50 Q98 34 92 27 Q84 26 72 38 Z" fill="#FEFDFB" stroke="#FEFDFB" stroke-width="4" stroke-linejoin="round"/>' +
   '<ellipse cx="64" cy="64" rx="34" ry="28" fill="#FEFDFB"/>' +
   '<circle cx="50" cy="56" r="3.8" fill="#12212B"/>' +
   '<circle cx="78" cy="56" r="3.8" fill="#12212B"/>' +
+  '<g class="snout">' +
   '<ellipse cx="64" cy="73" rx="18" ry="12.5" fill="#FEFDFB" stroke="#C62D18" stroke-width="4"/>' +
   '<ellipse cx="57.5" cy="73" rx="3" ry="5" fill="#C62D18"/>' +
   '<ellipse cx="70.5" cy="73" rx="3" ry="5" fill="#C62D18"/>' +
-  '</g></svg>';
+  '</g></g></svg>';
 
 /* setThreshold clamps at this ceiling, so the stepper's + stops here. */
 const LIMIT_CEILING = 15;
@@ -202,7 +212,7 @@ function card(title) {
  * stepper changes settings, which re-judges the feed).
  */
 function buildNotice({ matches, author, collapsed = true, showHint = false,
-  openKey = null, openFocus = null, onAction = () => {} }) {
+  openKey = null, openFocus = null, twitch = false, onAction = () => {} }) {
   const host = document.createElement('div');
   host.dataset.sfNotice = 'true';
   host.dataset.collapsed = String(collapsed);
@@ -269,6 +279,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
   // Pig: decorative unless there is an author to mute.
   const glyph = el('span', 'glyph');
   glyph.innerHTML = PIG_BADGE; // static constant, no page data
+  if (twitch) glyph.classList.add('react');
   if (author) {
     const c = card(`Mute ${author}?`);
     const d = el('div', 'd');

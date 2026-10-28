@@ -1,161 +1,153 @@
 /**
- * Popover styling. LinkedIn card as the shell (radius, hairline,
- * shadow), Slop Filter identity confined to the dark header band.
- * (.tally was ported too, then removed with the stats.hidden tally —
- * it displayed a counter nothing ever wrote.)
+ * Popover styling, variant B (LinkedIn-native): warm gray header band with a
+ * hairline, warm off-white body, LinkedIn blue for switches, the selected mode
+ * and links. The pig in the header is the status (awake, reacting, asleep).
+ * Never pure white or black.
  */
+@font-face{
+  font-family:'SlopFilter Display';
+  font-weight:700;font-style:normal;font-display:swap;
+  src:url(fonts/rosario-700.woff2) format('woff2');
+}
 :root{
-  --li-bg:#F4F2EE;
-  --li-card:#FFFFFF;
-  --li-fg:rgba(0,0,0,.9);
-  --li-fg2:rgba(0,0,0,.6);
-  --li-line:rgba(0,0,0,.08);
-  --li-line2:rgba(0,0,0,.15);
-  --li-blue:#0A66C2;
-  --li-blue-wash:#EAF1FB;
-  --li-hover:rgba(0,0,0,.08);
-  --li-r:8px;
-  --li-r-sm:4px;
+  --band:#F4F2EE;
+  --body:#FDFCFA;
+  --ink:#1d1d1f;
+  --ink2:#5c5c66;
+  --ink3:#77777f;
+  --line:#EBE9E5;
+  --band-line:#E0DFDC;
+  --blue:#0A66C2;
+  --off:#c8c6c2;
+  --seg-bg:#EFEDE9;
+  --seg-on:#FDFCFA;
+  --pig-grey:#9C9A96;
   --li-font:-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,
             "Helvetica Neue",Arial,sans-serif;
-
-  --df-ink:#12212B;
-  --df-pen:#3BA9D4;
-  --df-pen-d:#07729B;
-  --df-pen-wash:#E8F5FA;
-  --df-amber-d:#8A6207;
-  --df-olive:#63B39A;
-  --df-olive-wash:#EAF5F1;
-  --df-chalk:#EDF3F6;
-  --df-alert-bg:#C62D18;
-  --df-mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
-  --df-ui:"Geist","Rosario",var(--li-font);
-  /* Rosario (OFL); the notice bundles a subsetted woff2 as 'SlopFilter Display'. */
-  --df-display:"SlopFilter Display",Rosario,
-               "Helvetica Neue Condensed",Impact,sans-serif;
+  --display:"SlopFilter Display",Rosario,var(--li-font);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 body{
-  width:400px;
-  background:var(--li-card);
-  border:1px solid var(--li-line);
-  border-radius:var(--li-r);
-  box-shadow:0 4px 12px rgba(0,0,0,.15);
-  overflow:hidden;
+  width:360px;
+  background:var(--body);
   font-family:var(--li-font);
-  font-size:14px;
-  line-height:1.42857;
-  color:var(--li-fg);
+  font-size:14px;line-height:1.43;
+  color:var(--ink);
 }
+button{font-family:inherit}
 
-/* the one dark band — extension identity */
+/* header = pig status */
 .head{
-  background:var(--df-ink);
-  padding:13px 16px;
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  display:flex;align-items:center;gap:10px;
+  padding:14px 18px;
+  background:var(--band);
+  border-bottom:1px solid var(--band-line);
 }
-.mark{
-  font-family:var(--df-display);
-  font-size:22px;line-height:.92;
-  text-transform:uppercase;letter-spacing:.02em;
-  color:var(--df-chalk);
+.pig-btn{
+  width:34px;height:34px;flex:none;padding:2px;
+  background:none;border:0;border-radius:50%;cursor:pointer;
 }
-.mark em{font-style:normal;color:var(--df-pen)}
-.on{
-  font-family:var(--df-mono);font-size:9.5px;letter-spacing:.05em;
-  color:var(--df-olive);background:rgba(99,179,154,.2);
-  border:1px solid rgba(99,179,154,.45);
-  border-radius:3px;padding:3px 7px;white-space:nowrap;
+.pig-btn:hover{background:rgba(0,0,0,.06)}
+.pig-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.pig{width:100%;height:100%;display:block;overflow:visible}
+.pig .bg{transition:fill .3s}
+.wm{font:700 17px/1 var(--display);letter-spacing:.01em;color:var(--ink)}
+.lbl{margin-left:auto;font-size:12px;color:var(--ink2)}
+
+.pig .eyes-shut,.pig .z{display:none}
+.pig.asleep .bg{fill:var(--pig-grey)}
+.pig.asleep .eyes-open{display:none}
+.pig.asleep .eyes-shut,.pig.asleep .z{display:inline}
+.pig .z{font:700 22px var(--li-font);fill:#7a7874;opacity:0}
+.pig.asleep .z{animation:zz 2.6s ease-in-out infinite}
+.pig.asleep .z2{animation-delay:1.3s}
+@keyframes zz{
+  0%{opacity:0;transform:translate(0,0)}
+  25%{opacity:1}
+  100%{opacity:0;transform:translate(10px,-18px)}
+}
+/* reacting: one quick twitch of snout and ears, twice, when a post was just caught */
+.pig.react .snout{animation:twitch .5s ease-in-out 2;transform-origin:64px 73px;transform-box:view-box}
+.pig.react .earL{animation:earL .5s ease-in-out 2;transform-origin:44px 40px;transform-box:view-box}
+.pig.react .earR{animation:earR .5s ease-in-out 2;transform-origin:84px 40px;transform-box:view-box}
+@keyframes twitch{0%,100%{transform:none}30%{transform:translateY(-2px) scaleX(1.08)}60%{transform:translateY(1px) scaleX(.96)}}
+@keyframes earL{0%,100%{transform:none}40%{transform:rotate(-12deg)}}
+@keyframes earR{0%,100%{transform:none}40%{transform:rotate(12deg)}}
+@media (prefers-reduced-motion:reduce){
+  .pig.react *,.pig.asleep .z{animation:none!important}
+  .pig.asleep .z{opacity:1}
+  .pig .bg{transition:none}
+  .sw span,.sw span::after{transition:none}
 }
 
-.sec{padding:12px 16px;border-bottom:1px solid var(--li-line)}
-.sec h2{
-  display:flex;justify-content:space-between;align-items:baseline;
-  font-size:12px;font-weight:600;color:var(--li-fg2);
-  text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;
+/* sections */
+.sec{padding:14px 18px;border-bottom:1px solid var(--line)}
+.sec h2{font-size:12.5px;font-weight:600;color:var(--ink2);margin-bottom:10px}
+
+/* segmented control: a real radio group underneath */
+.seg{display:flex;background:var(--seg-bg);border-radius:8px;padding:3px}
+.seg-opt{flex:1;position:relative;cursor:pointer}
+.seg-opt input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.seg-opt span{
+  display:block;text-align:center;padding:7px 0;border-radius:6px;
+  font-size:13px;font-weight:600;color:var(--ink2);
 }
-.sec h2 a{color:var(--li-blue);text-decoration:none;font-weight:600;text-transform:none;letter-spacing:0}
-.sec h2 a:hover{text-decoration:underline}
+.seg-opt input:checked+span{background:var(--seg-on);color:var(--blue);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.seg-opt input:focus-visible+span{outline:2px solid var(--blue);outline-offset:1px}
+.hint{font-size:12px;color:var(--ink3);margin-top:7px}
 
-.frow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--li-line)}
-.frow:last-child{border-bottom:0}
-.fmain{flex:1;min-width:0}
-.fname{font-size:14px;font-weight:600;color:var(--li-fg);line-height:1.3}
-
-/* LinkedIn artdeco toggle */
-.sw{position:relative;width:36px;height:20px;flex-shrink:0}
-.sw input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:2}
-.sw span{position:absolute;inset:0;background:rgba(0,0,0,.25);border-radius:10px;transition:background 160ms ease;pointer-events:none}
-.sw span::after{
-  content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;
-  background:#fff;border-radius:50%;
-  transition:transform 160ms cubic-bezier(.4,0,.2,1);
-  box-shadow:0 1px 2px rgba(0,0,0,.3);
-}
-.sw input:checked+span{background:var(--li-blue)}
-.sw input:checked+span::after{transform:translateX(16px)}
-.sw input:focus-visible+span{outline:2px solid var(--li-blue);outline-offset:2px}
-/* Visible state beside every switch: testers could not tell what the bare toggle meant */
-.sw{margin-left:30px}
-.sw::before{content:"Off";position:absolute;right:calc(100% + 6px);top:50%;transform:translateY(-50%);font-size:11px;font-weight:600;color:rgba(0,0,0,.55);pointer-events:none}
-.sw:has(input:checked)::before{content:"On";color:var(--li-blue)}
-
-/* threshold stepper — only for the two filters that genuinely count
-   something (hashtags, emoji). Every other filter is binary. */
-.thr{display:flex;align-items:center;border:1px solid var(--li-line2);border-radius:var(--li-r-sm);overflow:hidden;flex-shrink:0}
+/* filters */
+.frow{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:13.5px}
+.frow-m{flex:1;min-width:0}
+.frow-n{color:var(--ink)}
+.thr{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink3)}
 .thr button{
-  width:22px;height:24px;border:0;background:var(--li-card);color:var(--li-fg2);
-  font-size:14px;line-height:1;cursor:pointer;font-family:inherit;
+  display:inline-grid;place-items:center;width:20px;height:20px;
+  border:1px solid #d9d6d0;border-radius:5px;background:none;
+  color:var(--ink2);font-size:13px;line-height:1;cursor:pointer;
 }
-.thr button:hover{background:var(--li-hover);color:var(--li-fg)}
+.thr button:hover{background:var(--seg-bg)}
+.thr button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
 .thr button:disabled{opacity:.35;cursor:default}
-.thr .val{
-  font-family:var(--df-mono);font-size:11px;color:var(--df-pen-d);
-  min-width:30px;text-align:center;font-weight:600;
-  border-left:1px solid var(--li-line2);border-right:1px solid var(--li-line2);
-  line-height:24px;
-}
-/* a threshold on a disabled filter is inert, and should look it */
-.frow:has(input:not(:checked)) .thr{opacity:.4;pointer-events:none}
-.frow:has(input:not(:checked)) .fname{opacity:.55}
+.thr .val{min-width:16px;text-align:center;color:var(--ink2);font-weight:600}
+.frow:has(input:not(:checked)) .thr{opacity:.45;pointer-events:none}
+.frow:has(input:not(:checked)) .frow-n{color:var(--ink3)}
 
-/* flag-mode radios */
-.opt{display:flex;flex-direction:column;gap:2px}
-.opt-row{
-  display:flex;align-items:flex-start;gap:9px;
-  padding:7px 8px;border-radius:var(--li-r-sm);cursor:pointer;
-  transition:background 120ms ease;
+/* switch with a visible On / Off label */
+.sw{position:relative;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;cursor:pointer}
+.sw::before{content:"Off";color:#8a8a92;min-width:18px;text-align:right}
+.sw:has(input:checked)::before{content:"On";color:var(--blue)}
+.sw input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:2}
+.sw span{
+  position:relative;display:inline-block;width:30px;height:18px;border-radius:999px;
+  background:var(--off);transition:background 160ms ease;pointer-events:none;
 }
-.opt-row:hover{background:var(--li-hover)}
-.opt-row input{
-  margin:2px 0 0;accent-color:var(--li-blue);
-  width:15px;height:15px;flex-shrink:0;cursor:pointer;
+.sw span::after{
+  content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform 160ms ease;
 }
-.opt-txt{display:flex;flex-direction:column;min-width:0}
-.opt-t{font-family:var(--df-ui);font-size:13.5px;font-weight:600;color:var(--li-fg);line-height:1.3}
-.opt-s{font-family:var(--df-ui);font-size:11.5px;color:var(--li-fg2);line-height:1.35;margin-top:1px}
+.sw input:checked+span{background:var(--blue)}
+.sw input:checked+span::after{transform:translateX(12px)}
+.sw input:focus-visible+span{outline:2px solid var(--blue);outline-offset:2px}
 
-.mrow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--li-line);font-size:14px}
-.mrow:last-child{border-bottom:0}
+/* muted */
+.mrow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13.5px}
 .mrow button{
-  font-family:var(--df-ui);font-size:12px;font-weight:600;
-  color:var(--li-blue);background:none;border:0;cursor:pointer;padding:0;
+  font-size:12px;font-weight:600;color:var(--blue);
+  background:none;border:0;cursor:pointer;padding:0;
 }
 .mrow button:hover{text-decoration:underline}
+.empty{font-size:13px;color:var(--ink3)}
 
-.empty{padding:8px 0;color:var(--li-fg2);font-size:13px}
-
+/* footer */
 .foot{
-  padding:10px 16px;background:#FAFAFA;
-  display:flex;justify-content:space-between;align-items:center;
-  font-size:12px;color:var(--li-fg2);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 18px;font-size:12px;color:#8a8a92;
 }
-.foot a{color:var(--li-blue);text-decoration:none;font-weight:600}
-.foot a:hover{text-decoration:underline}
-.foot span{font-family:var(--df-mono);font-size:10.5px}
-.settings-link{
-  font-family:var(--df-ui);font-size:12px;font-weight:600;
-  color:var(--li-blue);background:none;border:0;cursor:pointer;padding:0;
-}
-.settings-link:hover{text-decoration:underline}
+.links{display:flex;gap:14px}
+.link{font-size:12px;font-weight:600;color:var(--blue);background:none;border:0;cursor:pointer;padding:0}
+.link:hover{text-decoration:underline}
+.link:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:2px}
+#pause-link{font-weight:500;color:var(--ink3)}
+#pause-link:hover{color:var(--ink2)}
