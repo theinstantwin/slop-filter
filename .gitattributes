@@ -1,0 +1,4 @@
+# Kept out of GitHub's "Download ZIP" archive: dev tooling, not part of the extension.
+scripts/ export-ignore
+.github/ export-ignore
+.gitattributes export-ignore

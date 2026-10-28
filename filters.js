@@ -122,7 +122,7 @@ const SEED_CATEGORIES = [
   { id: 'hashtagOverload', name: 'Hashtag Overload', def: 'Too many hashtags in one post',
     on: true, counting: true, unit: 'hashtags', threshold: 5 },
   { id: 'emojiOverload', name: 'Emoji Overload', def: 'Too many emoji in one post',
-    on: false, counting: true, unit: 'emoji', threshold: 5 },
+    on: true, counting: true, unit: 'emoji', threshold: 5 },
   // Last and off by default: "excited to announce" and "grateful to share" are
   // how people post genuine news — new job, new baby. High false-positive rate
   // against posts you probably wanted to see, so this one opts in.
