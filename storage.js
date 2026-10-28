@@ -157,6 +157,12 @@ function liftAllowedPhrases(categories, allowed) {
  * on/off flag or rule list the blob already has — it only fills in
  * categories the blob has never seen.
  */
+// Seed definitions that have since been rewritten. A stored definition still
+// equal to one of these was never edited, so it takes the new seed text.
+const RETIRED_DEFS = {
+  selfPromotion: ['Pitching a follow instead of standing on its own'],
+};
+
 function upgradeToV2(stored, SEED = _SEED) {
   const hasCategories = Array.isArray(stored.categories);
 
@@ -190,6 +196,17 @@ function upgradeToV2(stored, SEED = _SEED) {
       if (c.labs) {
         const seed = SEED.find(s => s.id === c.id);
         if (seed) return { ...c, name: seed.name, def: seed.def };
+      }
+      // Built-in names can't be edited, so they always come from the seed
+      // (a rename like "Self-promotion CTA" -> "Self Promotion" reaches
+      // everyone). A definition is refreshed only if the user never edited it.
+      if (!c.custom) {
+        const seed = SEED.find(s => s.id === c.id);
+        if (seed) {
+          const next = { ...c, name: seed.name, rules: c.rules ? [...c.rules] : undefined };
+          if (RETIRED_DEFS[c.id] && RETIRED_DEFS[c.id].includes(c.def)) next.def = seed.def;
+          return next;
+        }
       }
       const copy = { ...c, rules: c.rules ? [...c.rules] : undefined };
       if (Array.isArray(c.off)) copy.off = c.off.filter(r => typeof r === 'string');

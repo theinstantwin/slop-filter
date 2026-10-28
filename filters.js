@@ -112,7 +112,7 @@ const SEED_CATEGORIES = [
     // disclosed ads for existing users. Migration never overwrites an
     // existing stored on:true either way (append-only by id).
     on: true, labs: true },
-  { id: 'selfPromotion', name: 'Self-promotion CTA', def: 'Pitching a follow instead of standing on its own',
+  { id: 'selfPromotion', name: 'Self Promotion', def: 'Posts that sign off asking for a follow.',
     on: true,
     // Verb-first phrasing (hit/click/tap/smash/give ... follow) now lives
     // in the Labs followVerbAlternation pattern instead — these follow-

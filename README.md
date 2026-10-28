@@ -48,7 +48,7 @@ You know these posts. You've scrolled past thousands of them. You've liked a few
 - **Fake Insight**: "nobody talks about this"
 - **Engagement Bait**: "agree?"
 - **Hustle Culture**: "5am club"
-- **Self-promotion CTA**: "follow me for more"
+- **Self Promotion**: "follow me for more"
 - **Sponsored**: #ad
 - **Hashtag Overload**: five or more
 - **Emoji Overload** (off to start): five or more
