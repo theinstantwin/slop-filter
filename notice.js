@@ -189,6 +189,12 @@ const LIMIT_FLOOR = 2;
 
 const cap = (w) => (w ? w[0].toUpperCase() + w.slice(1) : '');
 
+// Parsed rather than set through innerHTML: Mozilla's add-on linter flags any
+// innerHTML assignment from a variable, even a packaged constant.
+function svgEl(markup) {
+  return new document.defaultView.DOMParser().parseFromString(markup, 'text/html').body.firstChild;
+}
+
 function mkEl(tag, cls, text) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -296,7 +302,7 @@ function buildNotice({ matches, author, collapsed = true, showHint = false,
 
   // Pig: decorative unless there is an author to mute.
   const glyph = mkEl('span', 'glyph');
-  glyph.innerHTML = PIG_BADGE; // static constant, no page data
+  glyph.append(svgEl(PIG_BADGE));
   if (twitch) glyph.classList.add('react');
   if (author) {
     const c = card(`Mute ${author}?`);

@@ -50,7 +50,9 @@ function pigState(settings, caughtAt, now) {
 /** Draws the header pig and pause switch for a state. */
 function renderStatus(doc, state) {
   const btn = doc.getElementById('pig-toggle');
-  btn.innerHTML = POPUP_PIG; // static constant, no page data
+  // Parsed rather than set through innerHTML: Mozilla's add-on linter flags any
+  // innerHTML assignment from a variable, even a packaged constant.
+  btn.replaceChildren(new doc.defaultView.DOMParser().parseFromString(POPUP_PIG, 'text/html').body.firstChild);
   const svg = btn.querySelector('svg');
   if (state === 'asleep') svg.classList.add('asleep');
   if (state === 'react') svg.classList.add('react');
